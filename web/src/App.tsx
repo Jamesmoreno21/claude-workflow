@@ -13,7 +13,7 @@ import { Published } from "./screens/Published";
 import { Review } from "./screens/Review";
 import { Validation } from "./screens/Validation";
 import { speak } from "./tts";
-import { usePushToTalk } from "./voice";
+import { MIC_TOGGLE_LABEL, usePushToTalk } from "./voice";
 
 const WITH_CHAT: Phase[] = ["validation", "plan", "coding", "code_ready", "review", "history"];
 
@@ -81,7 +81,10 @@ export function App() {
           <div className="ptt">
             <span className="pulse" />
             <div>
-              <small>{focus.label ? `About ${focus.label}` : "Listening"} · release Space to send</small>
+              <small>
+                {focus.label ? `About ${focus.label}` : "Listening"} ·{" "}
+                {ptt.mode.current === "toggle" ? `${MIC_TOGGLE_LABEL} to send, Esc to cancel` : "release Space to send"}
+              </small>
               <p>{ptt.interim || "…"}</p>
             </div>
           </div>

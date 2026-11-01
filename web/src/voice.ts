@@ -22,25 +22,31 @@ const SpeechRecognition: (new () => Recognition) | undefined =
 export const voiceSupported = Boolean(SpeechRecognition);
 
 export const PTT_KEY = "Space";
+export const MIC_TOGGLE_LABEL = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘P" : "Ctrl+P";
 
 function isTyping(el: Element | null) {
   return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || (el as HTMLElement).isContentEditable);
 }
 
 /**
- * Push-to-talk: hold Space (outside text fields) to talk. While held, any
- * narration stops; on release the transcript goes to `onTranscript`.
+ * Two ways to talk, on every screen:
+ * - hold Space (outside text fields) and release to send;
+ * - press ⌘P / Ctrl+P to start, again to send (works while typing); Esc cancels.
+ * Talking stops any narration; the transcript goes to `onTranscript`.
  */
 export function usePushToTalk(onTranscript: (text: string) => void) {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const rec = useRef<Recognition | null>(null);
   const finalText = useRef("");
+  const mode = useRef<"hold" | "toggle">("hold");
+  const cancelled = useRef(false);
   const cb = useRef(onTranscript);
   cb.current = onTranscript;
 
-  const start = useCallback(() => {
+  const start = useCallback((how: "hold" | "toggle" = "hold") => {
     if (!SpeechRecognition || rec.current) return;
+    mode.current = how;
     window.dispatchEvent(new Event("wf:ptt-start"));
     stopSpeaking();
     const r = new SpeechRecognition();
@@ -48,6 +54,7 @@ export function usePushToTalk(onTranscript: (text: string) => void) {
     r.continuous = true;
     r.interimResults = true;
     finalText.current = "";
+    cancelled.current = false;
     r.onresult = (e) => {
       let live = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -63,7 +70,7 @@ export function usePushToTalk(onTranscript: (text: string) => void) {
       setListening(false);
       const text = finalText.current.trim() || interimRef.current.trim();
       setInterim("");
-      if (text) cb.current(text);
+      if (text && !cancelled.current) cb.current(text);
     };
     rec.current = r;
     r.start();
@@ -77,12 +84,23 @@ export function usePushToTalk(onTranscript: (text: string) => void) {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "p") {
+        // Swallow it so the browser doesn't print and screens don't see "p".
+        e.preventDefault();
+        e.stopPropagation();
+        return rec.current ? stop() : start("toggle");
+      }
+      if (e.key === "Escape" && rec.current) {
+        e.stopPropagation();
+        cancelled.current = true;
+        return stop();
+      }
       if (e.code !== PTT_KEY || e.repeat || isTyping(document.activeElement)) return;
       e.preventDefault();
-      start();
+      start("hold");
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code !== PTT_KEY || isTyping(document.activeElement)) return;
+      if (e.code !== PTT_KEY || mode.current !== "hold" || isTyping(document.activeElement)) return;
       e.preventDefault();
       stop();
     };
@@ -94,5 +112,5 @@ export function usePushToTalk(onTranscript: (text: string) => void) {
     };
   }, [start, stop]);
 
-  return { listening, interim, start, stop };
+  return { listening, interim, start, stop, mode };
 }

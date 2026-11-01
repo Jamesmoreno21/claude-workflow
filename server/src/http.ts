@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { WebSocketServer } from "ws";
 import type { ServerMessage, UserEvent } from "../../shared/protocol.js";
+import { contentSecurityPolicy, isAllowedHost, isAllowedOrigin } from "./security.js";
 import { synthesize, ttsProviders, type TtsRequest } from "./tts.js";
 import type { Workflow } from "./workflow.js";
 
@@ -36,16 +37,22 @@ async function freePort(start: number): Promise<number> {
 }
 
 export async function startUi(workflow: Workflow): Promise<string> {
+  const port = await freePort(Number(process.env.WORKFLOW_PORT ?? 4545));
   const app = new Hono();
+
+  app.use(async (c, next) => {
+    if (!isAllowedHost(c.req.header("host"), port)) return c.text("Forbidden host", 403);
+    if (!isAllowedOrigin(c.req.header("origin"), port)) return c.text("Forbidden origin", 403);
+    await next();
+    c.header("x-content-type-options", "nosniff");
+    c.header("referrer-policy", "no-referrer");
+  });
 
   app.get("/api/state", (c) => c.json(workflow.store?.state ?? null));
 
   app.get("/api/tts/providers", (c) => c.json(ttsProviders()));
 
   app.post("/api/tts", async (c) => {
-    // Only the cockpit itself may spend the user's TTS credits.
-    const origin = c.req.header("origin");
-    if (origin && new URL(origin).host !== c.req.header("host")) return c.text("Forbidden", 403);
     try {
       const audio = await synthesize(await c.req.json<TtsRequest>());
       return c.body(audio, 200, { "content-type": "audio/mpeg" });
@@ -59,14 +66,18 @@ export async function startUi(workflow: Workflow): Promise<string> {
     let file = join(WEB_DIST, rel);
     if (!existsSync(file) || rel === "/") file = join(WEB_DIST, "index.html");
     if (!existsSync(file)) return c.text("UI not built. Run `npm run build` in claude-workflow.", 500);
-    return c.body(readFileSync(file), 200, { "content-type": MIME[extname(file)] ?? "application/octet-stream" });
+    const headers: Record<string, string> = { "content-type": MIME[extname(file)] ?? "application/octet-stream" };
+    if (file.endsWith(".html")) headers["content-security-policy"] = contentSecurityPolicy(port);
+    return c.body(readFileSync(file), 200, headers);
   });
 
   const server = createAdaptorServer({ fetch: app.fetch }) as Server;
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 1024 * 1024 });
 
   server.on("upgrade", (req, socket, head) => {
-    if (req.url !== "/ws") return socket.destroy();
+    // Browsers let any page open a WebSocket to localhost; only the cockpit may.
+    const trusted = isAllowedHost(req.headers.host, port) && isAllowedOrigin(req.headers.origin, port);
+    if (req.url !== "/ws" || !trusted) return socket.destroy();
     wss.handleUpgrade(req, socket, head, (ws) => {
       const unsubscribe = workflow.store!.subscribe((state) => {
         const msg: ServerMessage = { type: "state", state };
@@ -83,7 +94,6 @@ export async function startUi(workflow: Workflow): Promise<string> {
     });
   });
 
-  const port = await freePort(Number(process.env.WORKFLOW_PORT ?? 4545));
   await new Promise<void>((res) => server.listen(port, "127.0.0.1", res));
   return `http://localhost:${port}`;
 }

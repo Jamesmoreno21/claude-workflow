@@ -22,8 +22,8 @@ export function loadMemory(): Memory {
 }
 
 function saveMemory(m: Memory) {
-  mkdirSync(dir(), { recursive: true });
-  writeFileSync(join(dir(), "memory.json"), JSON.stringify(m, null, 2));
+  mkdirSync(dir(), { recursive: true, mode: 0o700 });
+  writeFileSync(join(dir(), "memory.json"), JSON.stringify(m, null, 2), { mode: 0o600 });
 }
 
 export function rememberContext(ctx: TaskContext) {
@@ -57,7 +57,7 @@ export function saveSession(state: WorkflowState) {
   pending = setTimeout(() => {
     pending = null;
     const sessions = join(dir(), "sessions");
-    mkdirSync(sessions, { recursive: true });
-    writeFileSync(join(sessions, `${state.id}.json`), JSON.stringify(state, null, 2));
+    mkdirSync(sessions, { recursive: true, mode: 0o700 });
+    writeFileSync(join(sessions, `${state.id}.json`), JSON.stringify(state, null, 2), { mode: 0o600 });
   }, 500);
 }

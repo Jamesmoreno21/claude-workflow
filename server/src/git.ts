@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import type { RepoRef } from "../../shared/protocol.js";
 
 export function resolveRepo(repos: RepoRef[], name: string): RepoRef {
@@ -9,8 +9,17 @@ export function resolveRepo(repos: RepoRef[], name: string): RepoRef {
   return repo;
 }
 
+/** Resolves a repo-relative path, refusing anything that escapes the repo. */
+export function insideRepo(repoPath: string, file: string): string {
+  const full = resolve(repoPath, file);
+  const rel = relative(resolve(repoPath), full);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) throw new Error(`Path "${file}" is outside the repository`);
+  return full;
+}
+
 /** The file as it is at HEAD, or "" when it is new. */
 export function readAtHead(repoPath: string, file: string): string {
+  insideRepo(repoPath, file);
   try {
     return execFileSync("git", ["-C", repoPath, "show", `HEAD:${file}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
   } catch {
@@ -19,7 +28,7 @@ export function readAtHead(repoPath: string, file: string): string {
 }
 
 export function readWorking(repoPath: string, file: string): string {
-  const full = join(repoPath, file);
+  const full = insideRepo(repoPath, file);
   return existsSync(full) ? readFileSync(full, "utf8") : "";
 }
 

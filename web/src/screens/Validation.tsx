@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import type { Answer } from "../../../shared/protocol";
 import { Markdown } from "../components/Markdown";
 import { useApp } from "../connection";
+import { MIC_TOGGLE_LABEL } from "../voice";
 
 /**
  * One question at a time, full context on screen. Keys: 1-4 pick an option,
- * 5 jumps to "other", ←/→ move, E toggles the example, Hold Space answers by voice.
+ * 5 jumps to "other", ←/→ move, E toggles the example, ⌘P or hold Space answers by voice.
  */
 export function Validation() {
   const { state, send, setFocus } = useApp();
@@ -114,7 +115,7 @@ export function Validation() {
             <textarea
               id="other"
               rows={2}
-              placeholder="Something else… (or hold Space and say it)"
+              placeholder={`Something else… (or ${MIC_TOGGLE_LABEL} and say it)`}
               value={!a?.optionId ? (a?.text ?? "") : ""}
               onChange={(e) => setDraft({ ...draft, [q.id]: { text: e.target.value } })}
               onKeyDown={(e) => e.key === "Escape" && (e.target as HTMLElement).blur()}

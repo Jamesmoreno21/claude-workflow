@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type {
   Answer,
@@ -42,7 +42,7 @@ export class Workflow {
       this.store = new Store(context, loadMemory().reviewers);
       this.url = await startUi(this);
     }
-    if (openBrowser) exec(`${process.platform === "darwin" ? "open" : "xdg-open"} ${this.url}`);
+    if (openBrowser) execFile(process.platform === "darwin" ? "open" : "xdg-open", [this.url!]);
     return this.url!;
   }
 

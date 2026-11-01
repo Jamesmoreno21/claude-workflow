@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../connection";
-import { voiceSupported } from "../voice";
+import { MIC_TOGGLE_LABEL, voiceSupported } from "../voice";
 import { Markdown } from "./Markdown";
 
 export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop(): void } }) {
@@ -21,7 +21,7 @@ export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop()
   return (
     <aside className="chat">
       <div className="chat-log">
-        {state.chat.length === 0 && <p className="empty">Ask Claude anything about what you're looking at. Hold Space to talk.</p>}
+        {state.chat.length === 0 && <p className="empty">Ask Claude anything about what you're looking at. Press {MIC_TOGGLE_LABEL} to talk.</p>}
         {state.chat.map((m) => (
           <div key={m.id} className={`msg ${m.from}`}>
             {m.about && <span className="about">{m.about.replace(":", " ")}</span>}
@@ -55,8 +55,8 @@ export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop()
         {voiceSupported && (
           <button
             className={`mic ${ptt.listening ? "on" : ""}`}
-            title="Hold to talk"
-            onMouseDown={ptt.start}
+            title={`Hold to talk, or press ${MIC_TOGGLE_LABEL}`}
+            onMouseDown={() => ptt.start()}
             onMouseUp={ptt.stop}
             onMouseLeave={() => ptt.listening && ptt.stop()}
           >

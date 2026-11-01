@@ -99,8 +99,9 @@ function audio() {
   return ctx;
 }
 // Browsers only allow audio after a user gesture; unlock on the first one.
-window.addEventListener("pointerdown", () => audio(), { once: true, capture: true });
-window.addEventListener("keydown", () => audio(), { once: true, capture: true });
+const unlock = () => "AudioContext" in window && audio();
+window.addEventListener("pointerdown", unlock, { once: true, capture: true });
+window.addEventListener("keydown", unlock, { once: true, capture: true });
 
 /** Queues a buffer right after whatever is already playing. */
 function enqueue(buffer: AudioBuffer): Promise<void> {

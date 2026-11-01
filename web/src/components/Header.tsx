@@ -1,6 +1,6 @@
 import { PHASES, type Phase } from "../../../shared/protocol";
 import { useApp } from "../connection";
-import { voiceSupported } from "../voice";
+import { MIC_TOGGLE_LABEL, voiceSupported } from "../voice";
 import { VoiceSettings } from "./VoiceSettings";
 
 // Loading phases sit under the step they lead into.
@@ -45,7 +45,7 @@ export function Header({ onGear, connected }: { onGear: () => void; connected: b
             {!connected ? "Disconnected" : state.claudeWaiting ? "Your turn" : "Claude is working"}
           </span>
         )}
-        {voiceSupported && <kbd title="Hold Space to talk to Claude">Hold Space</kbd>}
+        {voiceSupported && <kbd title={`Talk to Claude: ${MIC_TOGGLE_LABEL} to start and send, or hold Space`}>{MIC_TOGGLE_LABEL} talk</kbd>}
         <VoiceSettings />
         <button className="icon" title="Task context" onClick={onGear}>
           ⚙
