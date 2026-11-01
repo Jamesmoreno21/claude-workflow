@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { WebSocketServer } from "ws";
 import type { ServerMessage, UserEvent } from "../../shared/protocol.js";
+import { synthesize, ttsProviders, type TtsRequest } from "./tts.js";
 import type { Workflow } from "./workflow.js";
 
 // dist/server/src/http.js -> repo root -> web/dist
@@ -38,6 +39,20 @@ export async function startUi(workflow: Workflow): Promise<string> {
   const app = new Hono();
 
   app.get("/api/state", (c) => c.json(workflow.store?.state ?? null));
+
+  app.get("/api/tts/providers", (c) => c.json(ttsProviders()));
+
+  app.post("/api/tts", async (c) => {
+    // Only the cockpit itself may spend the user's TTS credits.
+    const origin = c.req.header("origin");
+    if (origin && new URL(origin).host !== c.req.header("host")) return c.text("Forbidden", 403);
+    try {
+      const audio = await synthesize(await c.req.json<TtsRequest>());
+      return c.body(audio, 200, { "content-type": "audio/mpeg" });
+    } catch (err) {
+      return c.text((err as Error).message, 502);
+    }
+  });
 
   app.get("*", (c) => {
     const rel = normalize(c.req.path).replace(/^(\.\.[/\\])+/, "");

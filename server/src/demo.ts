@@ -7,7 +7,8 @@ import { dirname, join } from "node:path";
 import type { UserEvent } from "../../shared/protocol.js";
 import { Workflow } from "./workflow.js";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// DEMO_SPEED=0.1 makes the fake Claude 10x faster (used by the e2e test).
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms * Number(process.env.DEMO_SPEED ?? 1)));
 const repoPath = mkdtempSync(join(tmpdir(), "wf-demo-"));
 process.env.WORKFLOW_HOME = mkdtempSync(join(tmpdir(), "wf-demo-home-"));
 const write = (path: string, content: string) => {

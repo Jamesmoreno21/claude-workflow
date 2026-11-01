@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Slide } from "../../../shared/protocol";
 import { Diagram, Markdown } from "../components/Markdown";
 import { useApp } from "../connection";
-import { speak, stopSpeaking } from "../voice";
+import { speak, stopSpeaking } from "../tts";
 
 const KIND: Record<Slide["kind"], string> = {
   overview: "Overview",

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { stopSpeaking } from "./tts";
 
-// Browser built-ins: Web Speech API to listen, speechSynthesis to talk.
-// Both are swappable later for Whisper/ElevenLabs behind the same hook.
+// Push-to-talk listening through the browser's Web Speech API.
+// Narration (speaking) lives in ./tts.
 
 type Recognition = {
   lang: string;
@@ -94,44 +95,4 @@ export function usePushToTalk(onTranscript: (text: string) => void) {
   }, [start, stop]);
 
   return { listening, interim, start, stop };
-}
-
-/* ---------- Speaking ---------- */
-
-let muted = localStorage.getItem("wf.muted") === "1";
-export const isMuted = () => muted;
-export function setMuted(m: boolean) {
-  muted = m;
-  try {
-    localStorage.setItem("wf.muted", m ? "1" : "0");
-  } catch {}
-  if (m) stopSpeaking();
-}
-
-function pickVoice() {
-  const voices = speechSynthesis.getVoices();
-  const lang = navigator.language.slice(0, 2);
-  return (
-    voices.find((v) => v.lang.startsWith(lang) && /natural|premium|enhanced|samantha|google/i.test(v.name)) ??
-    voices.find((v) => v.lang.startsWith(lang))
-  );
-}
-
-/** Speaks `text`; resolves when done or interrupted. */
-export function speak(text: string): Promise<void> {
-  if (muted || !("speechSynthesis" in window)) return Promise.resolve();
-  speechSynthesis.cancel();
-  return new Promise((resolve) => {
-    const u = new SpeechSynthesisUtterance(text);
-    const v = pickVoice();
-    if (v) u.voice = v;
-    u.rate = 1.05;
-    u.onend = () => resolve();
-    u.onerror = () => resolve();
-    speechSynthesis.speak(u);
-  });
-}
-
-export function stopSpeaking() {
-  if ("speechSynthesis" in window) speechSynthesis.cancel();
 }

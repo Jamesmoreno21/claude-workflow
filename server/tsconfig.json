@@ -9,5 +9,11 @@
     "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src", "../shared"]
+  "include": [
+    "src",
+    "../shared"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ]
 }

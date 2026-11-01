@@ -38,7 +38,18 @@ npm run install-skill
 
 This builds the app, links the skill into `~/.claude/skills/workflow`, and registers the `workflow` MCP server at user scope. Open a new Claude Code session in your project and type `/workflow`.
 
-Voice works best in Chrome. Hold **Space** to talk, and use 🔊 in the header to mute narration.
+### Voice
+
+Hold **Space** to talk; listening uses the browser's Web Speech API, so it works best in Chrome. The 🔊 button in the header picks the narration voice. Claude has no speech API, so narration comes from one of these:
+
+| Voice | Setup | Notes |
+| --- | --- | --- |
+| **Kokoro** (default) | none | Open-source neural voice that runs in your browser, on the GPU when available. Free and private; about 90 MB downloaded once. English only. |
+| ElevenLabs | `export ELEVENLABS_API_KEY=…` before `npm run install-skill` | The most natural voice; multilingual. Optional `ELEVENLABS_VOICE_ID`. |
+| OpenAI | `export OPENAI_API_KEY=…` before `npm run install-skill` | `gpt-4o-mini-tts`; multilingual. |
+| System voice | none | Instant, but robotic. Also used as the fallback whenever another voice fails. |
+
+API keys stay in the MCP server's environment. The browser asks the local server for audio and never sees the keys.
 
 ## Develop
 
@@ -47,6 +58,13 @@ npm install
 npm run demo                 # builds, then runs a scripted fake Claude through every phase
 npm run dev:web              # Vite with hot reload, proxied to the demo on :4545
 ```
+
+```bash
+npm test                     # Vitest: server state/waiting/git + UI replay, validation, PR editing
+npm run test:e2e             # Playwright: drives the demo through all seven phases
+```
+
+Run `npx playwright install chromium` once before the first e2e run. Dependencies are pinned to patch ranges (`~x.y.z`), and `.npmrc` keeps new ones pinned the same way.
 
 | Path | What |
 | --- | --- |
@@ -57,6 +75,8 @@ npm run dev:web              # Vite with hot reload, proxied to the demo on :454
 | `server/src/store.ts` | State, event queue, waiting |
 | `server/src/demo.ts` | Scripted run for UI work |
 | `web/src/screens/*` | One screen per phase |
+| `web/src/tts/*` | Narration: Kokoro worker, providers, playback |
+| `e2e/workflow.spec.ts` | End-to-end run through every phase |
 
 ## License
 

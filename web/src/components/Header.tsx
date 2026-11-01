@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { PHASES, type Phase } from "../../../shared/protocol";
 import { useApp } from "../connection";
-import { isMuted, setMuted, voiceSupported } from "../voice";
+import { voiceSupported } from "../voice";
+import { VoiceSettings } from "./VoiceSettings";
 
 // Loading phases sit under the step they lead into.
 const STEP_OF: Record<Phase, Phase> = {
@@ -19,7 +19,6 @@ const STEP_OF: Record<Phase, Phase> = {
 
 export function Header({ onGear, connected }: { onGear: () => void; connected: boolean }) {
   const { state } = useApp();
-  const [muted, setM] = useState(isMuted());
   const current = PHASES.findIndex((p) => p.id === STEP_OF[state.phase]);
 
   return (
@@ -47,16 +46,7 @@ export function Header({ onGear, connected }: { onGear: () => void; connected: b
           </span>
         )}
         {voiceSupported && <kbd title="Hold Space to talk to Claude">Hold Space</kbd>}
-        <button
-          className="icon"
-          title={muted ? "Unmute narration" : "Mute narration"}
-          onClick={() => {
-            setMuted(!muted);
-            setM(!muted);
-          }}
-        >
-          {muted ? "🔇" : "🔊"}
-        </button>
+        <VoiceSettings />
         <button className="icon" title="Task context" onClick={onGear}>
           ⚙
         </button>

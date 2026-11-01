@@ -12,7 +12,8 @@ import { PlanScreen } from "./screens/Plan";
 import { Published } from "./screens/Published";
 import { Review } from "./screens/Review";
 import { Validation } from "./screens/Validation";
-import { speak, usePushToTalk } from "./voice";
+import { speak } from "./tts";
+import { usePushToTalk } from "./voice";
 
 const WITH_CHAT: Phase[] = ["validation", "plan", "coding", "code_ready", "review", "history"];
 
