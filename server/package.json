@@ -2,6 +2,13 @@
   "name": "@claude-workflow/server",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "Jamesmoreno21",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jamesmoreno21/claude-workflow.git",
+    "directory": "server"
+  },
   "type": "module",
   "main": "bin/mcp.js",
   "bin": {

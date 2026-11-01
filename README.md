@@ -31,10 +31,14 @@ Claude Code stays the brain and uses your existing plan and permissions. The MCP
 Requirements: Node 20.19+, 22.13+ or 24+, the Claude Code CLI, and `gh` (authenticated) for publishing.
 
 ```bash
-git clone https://github.com/Jamesmoreno21/claude-workflow
+git clone --branch v0.1.0 https://github.com/Jamesmoreno21/claude-workflow
 cd claude-workflow
 npm run install-skill
 ```
+
+Pin to a release tag (see [Releases](https://github.com/Jamesmoreno21/claude-workflow/releases)) rather than `main`. To upgrade later: `git fetch --tags && git checkout vX.Y.Z && npm run install-skill`.
+
+On a company machine, check that `huggingface.co` and `cdn.jsdelivr.net` are reachable if you want the default Kokoro voice (the system voice works offline), and that your Claude Code setup allows user-scoped MCP servers.
 
 This builds the app, links the skill into `~/.claude/skills/workflow`, and registers the `workflow` MCP server at user scope. Open a new Claude Code session in your project and type `/workflow`.
 
@@ -69,6 +73,17 @@ npm run typecheck
 For UI work with hot reload, run `npm run demo:dev` and `npm run dev:web` in two terminals, then open http://localhost:5173.
 
 CI runs lint, typecheck, unit tests (Node 22 and 24) and the e2e on every push and PR. Dependencies are pinned to patch ranges (`~x.y.z`); Dependabot proposes updates weekly.
+
+### Versioning
+
+[Semantic Versioning](https://semver.org), with every change noted under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md). To cut a release:
+
+```bash
+npm run release -- patch    # or minor, major, or an exact X.Y.Z
+git push --follow-tags
+```
+
+The script bumps all packages together, dates the changelog, runs lint, typecheck and tests, then commits and tags `vX.Y.Z`. Pushing the tag publishes a GitHub release with those notes. The MCP server reports its version at startup.
 
 ### Layout
 
