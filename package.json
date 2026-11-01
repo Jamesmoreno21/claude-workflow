@@ -12,13 +12,14 @@
   "scripts": {
     "build": "npm run build -w web && npm run build -w server",
     "dev:web": "npm run dev -w web",
-    "demo": "npm run build && node server/dist/server/src/demo.js",
+    "demo": "npm run build && node server/bin/demo.js",
     "install-skill": "bash scripts/install.sh",
     "test": "npm run test -w server && npm run test -w web",
     "test:e2e": "npm run build && playwright test",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write . && eslint --fix .",
-    "typecheck": "tsc -p server --noEmit && tsc -p web --noEmit"
+    "typecheck": "tsc -p server --noEmit && tsc -p web --noEmit",
+    "demo:dev": "npm run build -w server && WORKFLOW_DEV_ORIGIN=http://localhost:5173 node server/bin/demo.js --no-open"
   },
   "engines": {
     "node": "^20.19.0 || ^22.13.0 || >=24"

@@ -1,25 +1,20 @@
-import { PHASES, type Phase } from "../../../shared/protocol";
-import { useApp } from "../connection";
-import { MIC_TOGGLE_LABEL, voiceSupported } from "../voice";
-import { VoiceSettings } from "./VoiceSettings";
+import { PHASES } from "../../../shared/protocol";
+import { useApp } from "../app/AppContext";
+import { STEP_OF } from "../constants/phases";
+import { MIC_TOGGLE_LABEL } from "../constants/shortcuts";
+import { speechRecognitionSupported } from "../services/speech-recognition";
+import { NarrationSettings } from "./NarrationSettings";
 
-// Loading phases sit under the step they lead into.
-const STEP_OF: Record<Phase, Phase> = {
-  research: "validation",
-  validation: "validation",
-  planning: "plan",
-  plan: "plan",
-  coding: "coding",
-  code_ready: "coding",
-  review: "review",
-  history: "history",
-  publishing: "history",
-  published: "published",
-};
-
-export function Header({ onGear, connected }: { onGear: () => void; connected: boolean }) {
+function TurnIndicator({ connected }: { connected: boolean }) {
   const { state } = useApp();
-  const current = PHASES.findIndex((p) => p.id === STEP_OF[state.phase]);
+  if (state.phase === "published") return <span className="turn you">Done</span>;
+  if (!connected) return <span className="turn off">Disconnected</span>;
+  return state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>;
+}
+
+export function Header({ onOpenContext, connected }: { onOpenContext: () => void; connected: boolean }) {
+  const { state } = useApp();
+  const currentStep = PHASES.findIndex((p) => p.id === STEP_OF[state.phase]);
 
   return (
     <header className="header">
@@ -29,25 +24,21 @@ export function Header({ onGear, connected }: { onGear: () => void; connected: b
       </div>
 
       <ol className="stepper">
-        {PHASES.map((p, i) => (
-          <li key={p.id} className={i < current ? "done" : i === current ? "now" : ""}>
-            <span className="dot">{i < current ? "✓" : i + 1}</span>
-            {p.label}
+        {PHASES.map((step, i) => (
+          <li key={step.id} className={i < currentStep ? "done" : i === currentStep ? "now" : ""}>
+            <span className="dot">{i < currentStep ? "✓" : i + 1}</span>
+            {step.label}
           </li>
         ))}
       </ol>
 
       <div className="tools">
-        {state.phase === "published" ? (
-          <span className="turn you">Done</span>
-        ) : (
-          <span className={`turn ${!connected ? "off" : state.claudeWaiting ? "you" : "claude"}`}>
-            {!connected ? "Disconnected" : state.claudeWaiting ? "Your turn" : "Claude is working"}
-          </span>
+        <TurnIndicator connected={connected} />
+        {speechRecognitionSupported && (
+          <kbd title={`Talk to Claude: ${MIC_TOGGLE_LABEL} to start and send, or hold Space`}>{MIC_TOGGLE_LABEL} talk</kbd>
         )}
-        {voiceSupported && <kbd title={`Talk to Claude: ${MIC_TOGGLE_LABEL} to start and send, or hold Space`}>{MIC_TOGGLE_LABEL} talk</kbd>}
-        <VoiceSettings />
-        <button className="icon" title="Task context" onClick={onGear}>
+        <NarrationSettings />
+        <button className="icon" title="Task context" onClick={onOpenContext}>
           ⚙
         </button>
       </div>

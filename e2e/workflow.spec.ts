@@ -2,11 +2,14 @@ import { expect, test, type Page } from "@playwright/test";
 
 // One run through all seven phases against the scripted demo.
 
-const finding = (page: Page, id: number) => page.locator(".finding-box").filter({ has: page.locator(".num", { hasText: new RegExp(`^${id}$`) }) });
+const finding = (page: Page, id: number) =>
+  page.locator(".finding-box").filter({ has: page.locator(".num", { hasText: new RegExp(`^${id}$`) }) });
 
 test("a task goes from validation to published PRs", async ({ page }) => {
   // No narration in CI: muted, and never download the Kokoro model.
-  await page.addInitScript(() => localStorage.setItem("wf.tts", JSON.stringify({ provider: "browser", muted: true, speed: 1, voices: {} })));
+  await page.addInitScript(() =>
+    localStorage.setItem("wf.tts", JSON.stringify({ provider: "browser", muted: true, speed: 1, voices: {} })),
+  );
   await page.goto("/");
 
   await test.step("validation: product then technical, by keyboard", async () => {

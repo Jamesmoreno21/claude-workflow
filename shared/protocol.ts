@@ -3,16 +3,7 @@
 // sends `UserEvent`s back, which Claude receives from its waiting tools.
 
 export type Phase =
-  | "research"
-  | "validation"
-  | "planning"
-  | "plan"
-  | "coding"
-  | "code_ready"
-  | "review"
-  | "history"
-  | "publishing"
-  | "published";
+  "research" | "validation" | "planning" | "plan" | "coding" | "code_ready" | "review" | "history" | "publishing" | "published";
 
 export const PHASES: { id: Phase; label: string }[] = [
   { id: "validation", label: "Validation" },
@@ -23,11 +14,18 @@ export const PHASES: { id: Phase; label: string }[] = [
   { id: "published", label: "Published" },
 ];
 
+// Enum values live in arrays so the MCP schemas can reuse them.
+export const REPO_ROLES = ["change", "context"] as const;
+export const QUESTION_STAGES = ["product", "technical"] as const;
+export const SLIDE_KINDS = ["overview", "feature", "edge_cases", "implementation", "tests", "prs"] as const;
+export const SEVERITIES = ["critical", "high", "medium", "low"] as const;
+export const FINDING_CATEGORIES = ["bug", "security", "constraint", "style", "test", "perf", "other"] as const;
+
 export interface RepoRef {
   path: string;
   name: string;
   /** "change" repos get edits; "context" repos are only read. */
-  role: "change" | "context";
+  role: (typeof REPO_ROLES)[number];
 }
 
 export interface TaskContext {
@@ -51,7 +49,7 @@ export interface QuestionOption {
 
 export interface Question {
   id: string;
-  stage: "product" | "technical";
+  stage: (typeof QUESTION_STAGES)[number];
   title: string;
   /** Everything needed to understand the question without the terminal. */
   context: string;
@@ -71,7 +69,7 @@ export interface Answer {
 export interface Slide {
   id: string;
   title: string;
-  kind: "overview" | "feature" | "edge_cases" | "implementation" | "tests" | "prs";
+  kind: (typeof SLIDE_KINDS)[number];
   /** What Claude says out loud on this slide. */
   narration: string;
   /** Markdown body. */
@@ -122,8 +120,8 @@ export interface CodeSummary {
 
 export interface Finding {
   id: number;
-  severity: "critical" | "high" | "medium" | "low";
-  category: "bug" | "security" | "constraint" | "style" | "test" | "perf" | "other";
+  severity: (typeof SEVERITIES)[number];
+  category: (typeof FINDING_CATEGORIES)[number];
   repo: string;
   path: string;
   line: number;
@@ -136,6 +134,9 @@ export interface Finding {
   /** Set once Claude has a fix ready for approval. */
   fix?: { before: string; after: string; ready: boolean };
 }
+
+/** Open or being fixed: still needs the user before the review is clear. */
+export const isUnresolved = (f: Finding) => f.status === "open" || f.status === "fixing";
 
 /* ---------- Commit history ---------- */
 

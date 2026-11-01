@@ -1,12 +1,18 @@
 import { useState } from "react";
-import type { TaskContext } from "../../../shared/protocol";
-import { useApp } from "../connection";
+import { REPO_ROLES, type TaskContext } from "../../../shared/protocol";
+import { useApp } from "../app/AppContext";
+import { REPO_ROLE_LABEL } from "../constants/labels";
 
 /** The gear panel: edit what Claude was told at the start, at any time. */
 export function ContextDrawer({ onClose }: { onClose: () => void }) {
   const { state, send } = useApp();
-  const [ctx, setCtx] = useState<TaskContext>(structuredClone(state.context));
-  const set = (patch: Partial<TaskContext>) => setCtx({ ...ctx, ...patch });
+  const [context, setContext] = useState<TaskContext>(() => structuredClone(state.context));
+  const update = (patch: Partial<TaskContext>) => setContext({ ...context, ...patch });
+
+  const save = () => {
+    send({ type: "context_changed", context });
+    onClose();
+  };
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -20,33 +26,33 @@ export function ContextDrawer({ onClose }: { onClose: () => void }) {
 
         <label>
           Title
-          <input value={ctx.title} onChange={(e) => set({ title: e.target.value })} />
+          <input value={context.title} onChange={(e) => update({ title: e.target.value })} />
         </label>
         <label>
           Task link
-          <input value={ctx.taskUrl ?? ""} placeholder="ClickUp, GitHub issue…" onChange={(e) => set({ taskUrl: e.target.value })} />
+          <input value={context.taskUrl ?? ""} placeholder="ClickUp, GitHub issue…" onChange={(e) => update({ taskUrl: e.target.value })} />
         </label>
         <label>
           Description
-          <textarea rows={7} value={ctx.task} onChange={(e) => set({ task: e.target.value })} />
+          <textarea rows={7} value={context.task} onChange={(e) => update({ task: e.target.value })} />
         </label>
 
         <div className="field">
           <span>Repositories</span>
-          {ctx.repos.map((r, i) => (
-            <div className="repo-row" key={r.path}>
+          {context.repos.map((repo, i) => (
+            <div className="repo-row" key={repo.path}>
               <div>
-                <b>{r.name}</b>
-                <small>{r.path}</small>
+                <b>{repo.name}</b>
+                <small>{repo.path}</small>
               </div>
               <div className="seg">
-                {(["change", "context"] as const).map((role) => (
+                {REPO_ROLES.map((role) => (
                   <button
                     key={role}
-                    className={r.role === role ? "on" : ""}
-                    onClick={() => set({ repos: ctx.repos.map((x, j) => (j === i ? { ...x, role } : x)) })}
+                    className={repo.role === role ? "on" : ""}
+                    onClick={() => update({ repos: context.repos.map((r, j) => (j === i ? { ...r, role } : r)) })}
                   >
-                    {role === "change" ? "Changes" : "Context only"}
+                    {REPO_ROLE_LABEL[role]}
                   </button>
                 ))}
               </div>
@@ -56,24 +62,23 @@ export function ContextDrawer({ onClose }: { onClose: () => void }) {
 
         <label>
           Design
-          <textarea rows={2} value={ctx.design ?? ""} placeholder="Figma link or notes" onChange={(e) => set({ design: e.target.value })} />
+          <textarea
+            rows={2}
+            value={context.design ?? ""}
+            placeholder="Figma link or notes"
+            onChange={(e) => update({ design: e.target.value })}
+          />
         </label>
         <label>
           Style guide
-          <textarea rows={4} value={ctx.styleGuide ?? ""} onChange={(e) => set({ styleGuide: e.target.value })} />
+          <textarea rows={4} value={context.styleGuide ?? ""} onChange={(e) => update({ styleGuide: e.target.value })} />
         </label>
 
         <div className="drawer-foot">
           <button className="ghost" onClick={onClose}>
             Cancel
           </button>
-          <button
-            className="primary"
-            onClick={() => {
-              send({ type: "context_changed", context: ctx });
-              onClose();
-            }}
-          >
+          <button className="primary" onClick={save}>
             Save and tell Claude
           </button>
         </div>

@@ -1,35 +1,45 @@
 import { useEffect, useRef, useState } from "react";
-import { useApp } from "../connection";
-import { MIC_TOGGLE_LABEL, voiceSupported } from "../voice";
+import { useApp } from "../app/AppContext";
+import { MIC_TOGGLE_LABEL } from "../constants/shortcuts";
+import { speechRecognitionSupported } from "../services/speech-recognition";
 import { Markdown } from "./Markdown";
 
-export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop(): void } }) {
+interface TalkControls {
+  listening: boolean;
+  start(): void;
+  stop(): void;
+}
+
+export function Chat({ talk }: { talk: TalkControls }) {
   const { state, send, focus, setFocus } = useApp();
-  const [text, setText] = useState("");
+  const [draft, setDraft] = useState("");
   const end = useRef<HTMLDivElement>(null);
+  const claudeIsReplying = !state.claudeWaiting && state.chat.at(-1)?.from === "user";
 
   useEffect(() => {
     end.current?.scrollIntoView({ behavior: "smooth" });
   }, [state.chat.length]);
 
   const submit = () => {
-    if (!text.trim()) return;
-    send({ type: "chat", text: text.trim(), via: "text", about: focus.about });
-    setText("");
+    if (!draft.trim()) return;
+    send({ type: "chat", text: draft.trim(), via: "text", about: focus.about });
+    setDraft("");
   };
 
   return (
     <aside className="chat">
       <div className="chat-log">
-        {state.chat.length === 0 && <p className="empty">Ask Claude anything about what you're looking at. Press {MIC_TOGGLE_LABEL} to talk.</p>}
-        {state.chat.map((m) => (
-          <div key={m.id} className={`msg ${m.from}`}>
-            {m.about && <span className="about">{m.about.replace(":", " ")}</span>}
-            <Markdown text={m.text} />
-            {m.via === "voice" && <span className="via">🎙</span>}
+        {state.chat.length === 0 && (
+          <p className="empty">Ask Claude anything about what you're looking at. Press {MIC_TOGGLE_LABEL} to talk.</p>
+        )}
+        {state.chat.map((message) => (
+          <div key={message.id} className={`msg ${message.from}`}>
+            {message.about && <span className="about">{message.about.replace(":", " ")}</span>}
+            <Markdown text={message.text} />
+            {message.via === "voice" && <span className="via">🎙</span>}
           </div>
         ))}
-        {!state.claudeWaiting && state.chat.at(-1)?.from === "user" && <div className="msg claude typing">•••</div>}
+        {claudeIsReplying && <div className="msg claude typing">•••</div>}
         <div ref={end} />
       </div>
 
@@ -42,9 +52,9 @@ export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop()
       <div className="composer">
         <textarea
           rows={2}
-          value={text}
+          value={draft}
           placeholder="Ask or suggest a change…"
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -52,13 +62,13 @@ export function Chat({ ptt }: { ptt: { listening: boolean; start(): void; stop()
             }
           }}
         />
-        {voiceSupported && (
+        {speechRecognitionSupported && (
           <button
-            className={`mic ${ptt.listening ? "on" : ""}`}
+            className={`mic ${talk.listening ? "on" : ""}`}
             title={`Hold to talk, or press ${MIC_TOGGLE_LABEL}`}
-            onMouseDown={() => ptt.start()}
-            onMouseUp={ptt.stop}
-            onMouseLeave={() => ptt.listening && ptt.stop()}
+            onMouseDown={() => talk.start()}
+            onMouseUp={talk.stop}
+            onMouseLeave={() => talk.listening && talk.stop()}
           >
             🎙
           </button>

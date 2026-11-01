@@ -1,0 +1,79 @@
+import { describe, expect, it } from "vitest";
+import type { Finding, TaskContext } from "../../../shared/protocol.js";
+import { Store } from "./store.js";
+
+const ctx: TaskContext = { title: "T", task: "do it", repos: [{ path: "/tmp/x", name: "api", role: "change" }] };
+
+const finding = (id: number, status: Finding["status"] = "open"): Finding => ({
+  id,
+  status,
+  severity: "high",
+  category: "bug",
+  repo: "api",
+  path: "a.ts",
+  line: 1,
+  title: `f${id}`,
+  body: "",
+});
+
+describe("Store", () => {
+  it("hands queued events to the next wait without blocking", async () => {
+    const s = new Store(ctx, []);
+    s.push({ type: "plan_approved" });
+    expect(await s.waitForUser()).toEqual([{ type: "plan_approved" }]);
+  });
+
+  it("wakes a waiting tool when the user acts", async () => {
+    const s = new Store(ctx, []);
+    const waiting = s.waitForUser();
+    expect(s.state.claudeWaiting).toBe(true);
+    s.push({ type: "chat", text: "why redis?", via: "voice", about: "slide:s3" });
+    expect(await waiting).toHaveLength(1);
+    expect(s.state.claudeWaiting).toBe(false);
+    expect(s.state.chat[0]).toMatchObject({ from: "user", text: "why redis?", via: "voice", about: "slide:s3" });
+  });
+
+  it("returns no events when the wait times out", async () => {
+    const s = new Store(ctx, []);
+    expect(await s.waitForUser()).toEqual([]);
+  });
+
+  it("only wakes Claude on dismiss when it clears the last open finding", async () => {
+    const s = new Store(ctx, []);
+    s.state.findings = [finding(1), finding(2)];
+
+    const waiting = s.waitForUser();
+    s.push({ type: "finding_dismiss", id: 1 });
+    // Still asleep: #2 is open.
+    expect(s.state.claudeWaiting).toBe(true);
+    s.push({ type: "finding_dismiss", id: 2 });
+    expect(await waiting).toEqual([
+      { type: "finding_dismiss", id: 1 },
+      { type: "finding_dismiss", id: 2 },
+    ]);
+    expect(s.state.findings.map((f) => f.status)).toEqual(["dismissed", "dismissed"]);
+  });
+
+  it("keeps PR edits from the pencil without waking Claude, and publishes them", async () => {
+    const s = new Store(ctx, []);
+    const pr = { id: "p1", repo: "api", branch: "b", base: "main", title: "Old", body: "", commits: [] };
+    s.state.history = { prs: [pr], reviewers: [] };
+
+    const waiting = s.waitForUser();
+    s.push({ type: "history_edited", prs: [{ ...pr, title: "New" }] });
+    expect(s.state.claudeWaiting).toBe(true);
+    expect(s.state.history.prs[0].title).toBe("New");
+
+    s.push({ type: "publish", reviewers: ["octocat"], prs: [{ ...pr, title: "Final" }] });
+    const events = await waiting;
+    expect(events.map((e) => e.type)).toEqual(["history_edited", "publish"]);
+    expect(s.state.history).toMatchObject({ reviewers: ["octocat"], prs: [{ title: "Final" }] });
+  });
+
+  it("marks a rejected fix as no longer ready", () => {
+    const s = new Store(ctx, []);
+    s.state.findings = [{ ...finding(1, "fixing"), fix: { before: "a", after: "b", ready: true } }];
+    s.push({ type: "fix_rejected", id: 1, text: "use a constant" });
+    expect(s.state.findings[0].fix?.ready).toBe(false);
+  });
+});

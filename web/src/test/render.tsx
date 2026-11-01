@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { vi } from "vitest";
 import type { WorkflowState } from "../../../shared/protocol";
-import { AppContext } from "../connection";
+import { AppContext } from "../app/AppContext";
 
 export function makeState(patch: Partial<WorkflowState> = {}): WorkflowState {
   return {

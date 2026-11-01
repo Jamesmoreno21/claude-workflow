@@ -1,42 +1,58 @@
 import { useEffect, useRef, useState } from "react";
-import type { Phase } from "../../shared/protocol";
+import type { ChatMessage } from "../../shared/protocol";
+import { AppContext, type Focus } from "./app/AppContext";
 import { Chat } from "./components/Chat";
 import { ContextDrawer } from "./components/ContextDrawer";
 import { Header } from "./components/Header";
-import { AppContext, useConnection, type Focus } from "./connection";
-import { CodeReady } from "./screens/CodeReady";
-import { Coding } from "./screens/Coding";
-import { History } from "./screens/History";
-import { Loading } from "./screens/Loading";
-import { PlanScreen } from "./screens/Plan";
-import { Published } from "./screens/Published";
-import { Review } from "./screens/Review";
-import { Validation } from "./screens/Validation";
-import { speak } from "./tts";
-import { MIC_TOGGLE_LABEL, usePushToTalk } from "./voice";
+import { PHASES_WITH_CHAT } from "./constants/phases";
+import { MIC_TOGGLE_LABEL } from "./constants/shortcuts";
+import { useConnection } from "./hooks/useConnection";
+import { usePushToTalk } from "./hooks/usePushToTalk";
+import { CodeReadyScreen } from "./screens/CodeReadyScreen";
+import { CodingScreen } from "./screens/CodingScreen";
+import { HistoryScreen } from "./screens/HistoryScreen";
+import { LoadingScreen } from "./screens/LoadingScreen";
+import { PlanScreen } from "./screens/PlanScreen";
+import { PublishedScreen } from "./screens/PublishedScreen";
+import { ReviewScreen } from "./screens/ReviewScreen";
+import { ValidationScreen } from "./screens/ValidationScreen";
+import { speak } from "./services/tts";
 
-const WITH_CHAT: Phase[] = ["validation", "plan", "coding", "code_ready", "review", "history"];
+const SCREENS = {
+  research: LoadingScreen,
+  planning: LoadingScreen,
+  publishing: LoadingScreen,
+  validation: ValidationScreen,
+  plan: PlanScreen,
+  coding: CodingScreen,
+  code_ready: CodeReadyScreen,
+  review: ReviewScreen,
+  history: HistoryScreen,
+  published: PublishedScreen,
+};
+
+/** Speaks Claude's new chat messages, never the history loaded on (re)connect. */
+function useSpeakClaudeReplies(chat: ChatMessage[] | undefined) {
+  const spoken = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!chat) return;
+    const fromClaude = chat.filter((m) => m.from === "claude");
+    if (!spoken.current) {
+      spoken.current = new Set(fromClaude.map((m) => m.id));
+      return;
+    }
+    const fresh = fromClaude.filter((m) => !spoken.current!.has(m.id));
+    fresh.forEach((m) => spoken.current!.add(m.id));
+    if (fresh.length) void speak(fresh.map((m) => m.text).join(" "));
+  }, [chat]);
+}
 
 export function App() {
   const { state, connected, send } = useConnection();
   const [focus, setFocus] = useState<Focus>({});
-  const [gearOpen, setGearOpen] = useState(false);
-
-  const ptt = usePushToTalk((text) => send({ type: "chat", text, via: "voice", about: focus.about }));
-
-  // Speak every new message from Claude.
-  const spoken = useRef<Set<string> | null>(null);
-  useEffect(() => {
-    if (!state) return;
-    const claude = state.chat.filter((m) => m.from === "claude");
-    if (!spoken.current) {
-      spoken.current = new Set(claude.map((m) => m.id)); // don't replay history on reload
-      return;
-    }
-    const fresh = claude.filter((m) => !spoken.current!.has(m.id));
-    fresh.forEach((m) => spoken.current!.add(m.id));
-    if (fresh.length) speak(fresh.map((m) => m.text).join(" "));
-  }, [state?.chat.length]);
+  const [contextOpen, setContextOpen] = useState(false);
+  const talk = usePushToTalk((text) => send({ type: "chat", text, via: "voice", about: focus.about }));
+  useSpeakClaudeReplies(state?.chat);
 
   if (!state)
     return (
@@ -46,50 +62,32 @@ export function App() {
       </div>
     );
 
-  const screen = (() => {
-    switch (state.phase) {
-      case "research":
-      case "planning":
-      case "publishing":
-        return <Loading />;
-      case "validation":
-        return <Validation />;
-      case "plan":
-        return <PlanScreen />;
-      case "coding":
-        return <Coding />;
-      case "code_ready":
-        return <CodeReady />;
-      case "review":
-        return <Review />;
-      case "history":
-        return <History />;
-      case "published":
-        return <Published />;
-    }
-  })();
+  const Screen = SCREENS[state.phase];
+  const withChat = PHASES_WITH_CHAT.includes(state.phase);
 
   return (
     <AppContext.Provider value={{ state, send, focus, setFocus }}>
       <div className="app">
-        <Header onGear={() => setGearOpen(true)} connected={connected} />
-        <div className={`body ${WITH_CHAT.includes(state.phase) ? "with-chat" : ""}`}>
-          <main>{screen}</main>
-          {WITH_CHAT.includes(state.phase) && <Chat ptt={ptt} />}
+        <Header onOpenContext={() => setContextOpen(true)} connected={connected} />
+        <div className={`body ${withChat ? "with-chat" : ""}`}>
+          <main>
+            <Screen />
+          </main>
+          {withChat && <Chat talk={talk} />}
         </div>
-        {ptt.listening && (
+        {talk.listening && (
           <div className="ptt">
             <span className="pulse" />
             <div>
               <small>
                 {focus.label ? `About ${focus.label}` : "Listening"} ·{" "}
-                {ptt.mode.current === "toggle" ? `${MIC_TOGGLE_LABEL} to send, Esc to cancel` : "release Space to send"}
+                {talk.mode === "toggle" ? `${MIC_TOGGLE_LABEL} to send, Esc to cancel` : "release Space to send"}
               </small>
-              <p>{ptt.interim || "…"}</p>
+              <p>{talk.transcript || "…"}</p>
             </div>
           </div>
         )}
-        {gearOpen && <ContextDrawer onClose={() => setGearOpen(false)} />}
+        {contextOpen && <ContextDrawer onClose={() => setContextOpen(false)} />}
       </div>
     </AppContext.Provider>
   );

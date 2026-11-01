@@ -1,7 +1,12 @@
 {
   "name": "@claude-workflow/server",
-  "version": "1.0.0",
-  "main": "dist/server/src/index.js",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "bin/mcp.js",
+  "bin": {
+    "claude-workflow-mcp": "bin/mcp.js"
+  },
   "scripts": {
     "build": "tsc -p .",
     "test": "vitest run"
@@ -18,6 +23,5 @@
     "@types/ws": "~8.18.2",
     "typescript": "~5.9.3",
     "vitest": "~3.2.7"
-  },
-  "type": "module"
+  }
 }

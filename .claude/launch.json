@@ -4,13 +4,13 @@
     {
       "name": "demo",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["server/dist/server/src/demo.js", "--no-open"],
+      "runtimeArgs": ["server/bin/demo.js", "--no-open"],
       "port": 4545
     },
     {
       "name": "demo-alt",
       "runtimeExecutable": "env",
-      "runtimeArgs": ["WORKFLOW_PORT=4600", "node", "server/dist/server/src/demo.js", "--no-open"],
+      "runtimeArgs": ["WORKFLOW_PORT=4600", "node", "server/bin/demo.js", "--no-open"],
       "port": 4600
     }
   ]
