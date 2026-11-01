@@ -21,6 +21,11 @@ if ! grep -q "^## \[Unreleased\]" CHANGELOG.md; then
   echo "CHANGELOG.md needs an '## [Unreleased]' section." >&2
   exit 1
 fi
+UNRELEASED_NOTES=$(awk '/^## \[Unreleased\]/ { on = 1; next } on && /^(## |\[)/ { exit } on && NF { print }' CHANGELOG.md)
+if [ -z "$UNRELEASED_NOTES" ]; then
+  echo "Nothing under '## [Unreleased]' in CHANGELOG.md; describe the changes first." >&2
+  exit 1
+fi
 
 CURRENT=$(node -p 'require("./package.json").version')
 NEXT=$(node -e '
