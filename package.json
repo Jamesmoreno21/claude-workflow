@@ -5,11 +5,17 @@
   "description": "A /workflow skill for Claude Code with a local cockpit UI: validate, plan, code, review and publish a task with voice.",
   "license": "MIT",
   "author": "Jamesmoreno21",
-  "workspaces": ["server", "web"],
+  "workspaces": [
+    "server",
+    "web"
+  ],
   "scripts": {
     "build": "npm run build -w web && npm run build -w server",
     "dev:web": "npm run dev -w web",
     "demo": "npm run build && node server/dist/server/src/demo.js",
     "install-skill": "bash scripts/install.sh"
+  },
+  "engines": {
+    "node": ">=20.19"
   }
 }
