@@ -92,6 +92,8 @@ export interface PlannedPR {
 export interface Plan {
   slides: Slide[];
   prs: PlannedPR[];
+  /** Architecture layers this task touches, outermost first (e.g. UI, API, Service, Data, Tests). */
+  layers?: string[];
 }
 
 /* ---------- Coding ---------- */
@@ -102,6 +104,8 @@ export interface FileEntry {
   /** Which plan slide this file implements. */
   planRef?: string;
   intent?: string;
+  /** Architecture layer, one of Plan.layers. */
+  layer?: string;
   status: "pending" | "writing" | "awaiting_approval" | "approved";
   before?: string;
   after?: string;
@@ -212,7 +216,8 @@ export type UserEvent =
   | { type: "fix_approved"; id: number }
   | { type: "fix_rejected"; id: number; text?: string }
   | { type: "history_changed"; reviewers: string[]; text?: string }
-  | { type: "publish"; reviewers: string[] }
+  | { type: "history_edited"; prs: ProposedPR[] }
+  | { type: "publish"; reviewers: string[]; prs: ProposedPR[] }
   | { type: "context_changed"; context: TaskContext };
 
 export type ServerMessage = { type: "state"; state: WorkflowState };

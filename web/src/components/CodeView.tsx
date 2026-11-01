@@ -62,39 +62,142 @@ function highlight(text: string, lang: string) {
   }
 }
 
+/* ---------- Replay ---------- */
+
+/** Typing speed at 1×, in characters per second: a quick human typist. */
+const CPS = 28;
+const LINE_PAUSE = 140;
+const HUNK_PAUSE = 700;
+export const SPEEDS = [0.5, 1, 2, 4];
+
+interface TypedLine {
+  row: number;
+  start: number;
+  len: number;
+  indent: number;
+  hunkStart: boolean;
+}
+
+/** Position of every added line in a single "characters typed" timeline. */
+function timeline(rows: Row[]) {
+  const lines: TypedLine[] = [];
+  let offset = 0;
+  let prev = -2;
+  rows.forEach((r, i) => {
+    if (r.kind !== "add") return;
+    lines.push({ row: i, start: offset, len: r.text.length, indent: r.text.match(/^\s*/)![0].length, hunkStart: i !== prev + 1 });
+    offset += r.text.length + 1; // +1 for the newline that finishes the line
+    prev = i;
+  });
+  return { lines, total: offset };
+}
+
+const lineAt = (lines: TypedLine[], pos: number) => Math.max(0, lines.findLastIndex((l) => l.start <= pos));
+
+const savedSpeed = () => {
+  try {
+    return Number(localStorage.getItem("wf.speed")) || 1;
+  } catch {
+    return 1;
+  }
+};
+
 /**
- * Replays added lines one at a time so the user follows the change instead of
- * receiving a wall of code. `animateKey` changing restarts the replay.
+ * Types the added lines at a human pace so the change can be followed. The
+ * position is a character offset into the added lines; stepping pauses playback.
  */
 export function useReplay(rows: Row[], animateKey: string | number, enabled: boolean) {
-  const total = rows.filter((r) => r.kind === "add").length;
-  const [shown, setShown] = useState(enabled ? 0 : total);
+  const { lines, total } = useMemo(() => timeline(rows), [rows]);
+  const [pos, setPos] = useState(enabled ? 0 : total);
+  const [playing, setPlaying] = useState(enabled);
+  const [speed, setSpeedState] = useState(savedSpeed);
+
   useEffect(() => {
-    if (!enabled) return setShown(total);
-    setShown(0);
-    // Long files replay faster so nothing takes more than ~12s.
-    const step = Math.max(12, Math.min(90, 12000 / Math.max(total, 1)));
-    let i = 0;
-    const t = window.setInterval(() => {
-      i += 1;
-      setShown(i);
-      if (i >= total) clearInterval(t);
-    }, step);
-    return () => clearInterval(t);
+    setPos(enabled ? 0 : total);
+    setPlaying(enabled);
   }, [animateKey, enabled, total]);
-  return { shown, total, done: shown >= total, skip: () => setShown(total) };
+
+  useEffect(() => {
+    if (!playing) return;
+    if (pos >= total) return setPlaying(false);
+    const li = lineAt(lines, pos);
+    const l = lines[li];
+    const col = pos - l.start;
+    const char = 1000 / (CPS * speed);
+    const hunk = l.hunkStart && li > 0 && col === 0 ? HUNK_PAUSE / speed : 0;
+    let next = pos + 1;
+    let delay = char;
+    if (col >= l.len) delay = (l.len ? LINE_PAUSE : LINE_PAUSE / 2) / speed; // finish the line
+    else if (col === 0 && l.indent > 0) {
+      next = l.start + l.indent; // editors auto-indent; don't type the spaces
+      delay = hunk;
+    } else delay = Math.max(char, hunk);
+    const t = window.setTimeout(() => setPos(Math.min(next, total)), delay);
+    return () => clearTimeout(t);
+  }, [playing, pos, speed, lines, total]);
+
+  const current = lineAt(lines, Math.min(pos, total - 1));
+  const typedLines = lines.filter((l) => pos >= l.start + l.len + 1).length;
+
+  const forward = (hunk = false) => {
+    setPlaying(false);
+    if (!lines.length) return;
+    if (hunk) {
+      const nextHunk = lines.findIndex((l, i) => i > current && l.hunkStart);
+      return setPos(nextHunk < 0 ? total : lines[nextHunk].start);
+    }
+    const l = lines[lineAt(lines, pos)];
+    setPos(Math.min(total, pos >= l.start + l.len + 1 ? pos : l.start + l.len + 1));
+  };
+
+  const back = (hunk = false) => {
+    setPlaying(false);
+    if (!lines.length || pos === 0) return;
+    if (hunk) {
+      let i = lineAt(lines, pos - 1);
+      while (i > 0 && !lines[i].hunkStart) i--;
+      return setPos(lines[i].start);
+    }
+    const li = lineAt(lines, pos);
+    setPos(pos > lines[li].start ? lines[li].start : lines[Math.max(0, li - 1)].start);
+  };
+
+  const setSpeed = (s: number) => {
+    setSpeedState(s);
+    try {
+      localStorage.setItem("wf.speed", String(s));
+    } catch {}
+  };
+
+  return {
+    pos,
+    total,
+    done: pos >= total,
+    playing,
+    speed,
+    progress: { line: typedLines, lines: lines.length },
+    toggle: () => (pos >= total ? (setPos(0), setPlaying(true)) : setPlaying(!playing)),
+    forward,
+    back,
+    skip: () => {
+      setPlaying(false);
+      setPos(total);
+    },
+    setSpeed,
+  };
 }
 
 export function CodeView({
   rows,
   path,
-  revealAdds = Infinity,
+  revealPos = Infinity,
   annotations,
   highlightLine,
 }: {
   rows: Row[];
   path: string;
-  revealAdds?: number;
+  /** Characters of added lines typed so far (see useReplay). */
+  revealPos?: number;
   /** Boxes rendered under a given new-file line number. */
   annotations?: Map<number, ReactNode>;
   highlightLine?: number;
@@ -102,23 +205,14 @@ export function CodeView({
   const lang = langOf(path);
   const cursorRef = useRef<HTMLDivElement>(null);
   const html = useMemo(() => rows.map((r) => (r.kind === "fold" ? "" : highlight(r.text, lang))), [rows, lang]);
+  const { lines } = useMemo(() => timeline(rows), [rows]);
+  const byRow = useMemo(() => new Map(lines.map((l) => [l.row, l])), [lines]);
 
-  let adds = 0;
-  let cursorIndex = -1;
-  const visible: boolean[] = rows.map((r, i) => {
-    if (r.kind !== "add") return true;
-    adds += 1;
-    if (adds <= revealAdds) {
-      cursorIndex = i;
-      return true;
-    }
-    return false;
-  });
-  const typing = revealAdds !== Infinity && adds > revealAdds;
+  const cursorRow = revealPos === Infinity ? -1 : (lines.find((l) => revealPos >= l.start && revealPos < l.start + l.len + 1)?.row ?? -1);
 
   useEffect(() => {
-    if (typing) cursorRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [cursorIndex, typing]);
+    if (cursorRow >= 0) cursorRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [cursorRow]);
 
   useEffect(() => {
     if (highlightLine) document.getElementById(`L${highlightLine}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -127,7 +221,8 @@ export function CodeView({
   return (
     <div className="code">
       {rows.map((r, i) => {
-        if (!visible[i]) return null;
+        const typed = byRow.get(i);
+        if (typed && revealPos < typed.start) return null; // not reached yet
         if (r.kind === "fold")
           return (
             <div key={i} className="row fold">
@@ -136,7 +231,8 @@ export function CodeView({
               <span className="text">⋯ {r.hidden} unchanged lines</span>
             </div>
           );
-        const isCursor = typing && i === cursorIndex;
+        const isCursor = i === cursorRow;
+        const text = isCursor && typed ? highlight(r.text.slice(0, revealPos - typed.start), lang) : html[i];
         return (
           <Fragment key={i}>
             <div
@@ -147,7 +243,7 @@ export function CodeView({
               <span className="gutter">{r.oldNo ?? ""}</span>
               <span className="gutter">{r.newNo ?? ""}</span>
               <span className="sign">{r.kind === "add" ? "+" : r.kind === "del" ? "−" : ""}</span>
-              <span className="text" dangerouslySetInnerHTML={{ __html: html[i] }} />
+              <span className="text" dangerouslySetInnerHTML={{ __html: text }} />
             </div>
             {r.newNo !== undefined && r.kind !== "del" && annotations?.get(r.newNo)}
           </Fragment>

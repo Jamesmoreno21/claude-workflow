@@ -2,6 +2,16 @@ import { marked } from "marked";
 import mermaid from "mermaid";
 import { useEffect, useId, useMemo, useRef } from "react";
 
+// Links (docs, references) open beside the cockpit instead of replacing it.
+marked.use({
+  renderer: {
+    link({ href, tokens }) {
+      const safe = href.replace(/"/g, "&quot;");
+      return `<a href="${safe}" target="_blank" rel="noreferrer">${this.parser.parseInline(tokens)}</a>`;
+    },
+  },
+});
+
 export function Markdown({ text, className = "" }: { text: string; className?: string }) {
   const html = useMemo(() => marked.parse(text ?? "", { async: false }) as string, [text]);
   return <div className={`md ${className}`} dangerouslySetInnerHTML={{ __html: html }} />;

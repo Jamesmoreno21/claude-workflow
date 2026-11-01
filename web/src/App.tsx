@@ -14,7 +14,7 @@ import { Review } from "./screens/Review";
 import { Validation } from "./screens/Validation";
 import { speak, usePushToTalk } from "./voice";
 
-const WITH_CHAT: Phase[] = ["plan", "coding", "code_ready", "review", "history"];
+const WITH_CHAT: Phase[] = ["validation", "plan", "coding", "code_ready", "review", "history"];
 
 export function App() {
   const { state, connected, send } = useConnection();

@@ -21,7 +21,8 @@ const NEXT: Partial<Record<UserEvent["type"], string>> = {
   finding_fix: "Fix that finding in the code, then call workflow_fix_ready with its id.",
   fix_rejected: "Rework the fix (see the note), then call workflow_fix_ready again.",
   history_changed: "Revise the proposal and call workflow_propose_history again.",
-  publish: "Create branches, commits and PRs exactly as proposed, then call workflow_published.",
+  history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
+  publish: "Create branches, commits and PRs exactly as in this event's `prs` (it includes the user's edits), then call workflow_published.",
   context_changed: "The user edited the task context in the gear panel. Re-read it and adjust.",
 };
 
@@ -161,6 +162,10 @@ mcp.registerTool(
     inputSchema: {
       slides: z.array(slide).min(1),
       prs: z.array(z.object({ repo: z.string(), title: z.string(), estimatedLines: z.number().int(), scope: z.string() })),
+      layers: z
+        .array(z.string())
+        .optional()
+        .describe("Architecture layers this task touches, outermost first, e.g. ['UI', 'API route', 'Service', 'Data', 'Tests']"),
     },
   },
   async (plan) => result(await wf.presentPlan(plan)),
@@ -175,9 +180,10 @@ mcp.registerTool(
       path: z.string().describe("Path relative to the repo root"),
       planRef: z.string().optional().describe("Slide id"),
       intent: z.string().optional().describe("One line: what changes in this file"),
+      layer: z.string().optional().describe("Which of the plan's layers this file belongs to"),
     },
   },
-  async ({ repo, path, planRef, intent }) => result(wf.beginFile(repo, path, planRef, intent)),
+  async ({ repo, path, planRef, intent, layer }) => result(wf.beginFile(repo, path, planRef, intent, layer)),
 );
 
 mcp.registerTool(

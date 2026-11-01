@@ -67,6 +67,10 @@ For each question:
 - Only ask what really changes the outcome. Aim for 3–7 product questions and
   3–7 technical questions.
 
+The chat sidebar is open during validation. Use it (`workflow_reply`) to
+share references the user may want to check, such as links to official docs,
+RFCs and existing code, as markdown links.
+
 Send the product questions with `workflow_ask`. When the answers arrive, send
 the technical ones (later answers can make some of them unnecessary). If the
 user answers by voice, map the answer with
@@ -86,6 +90,10 @@ Call `workflow_status(phase: "planning")` while you prepare the plan, then call
 6. **prs**: how the work splits into PRs. Aim for 1000 lines or fewer per PR.
    300–400 over is OK; never more than 1500. Stack PRs when needed.
 
+Also pass `layers`: the architecture layers this task touches, outermost
+first (for example `["UI", "API route", "Service", "Data access", "Tests"]`).
+The coding screen uses them to show where each file sits.
+
 `narration` is spoken aloud: 2–5 conversational sentences per slide, no
 markdown, and no reading the bullets word for word. If the user interrupts
 with a question, answer it with `workflow_reply` (about: the slide). If the
@@ -96,7 +104,8 @@ slides (same ids).
 
 For each file, in the order of the plan:
 
-1. `workflow_begin_file(repo, path, planRef, intent)`
+1. `workflow_begin_file(repo, path, planRef, intent, layer)`, where `layer`
+   is one of the plan's `layers`
 2. Write the change with your normal Edit/Write tools, following the style
    guide.
 3. `workflow_file_ready(repo, path)`. The user watches the diff replay and
@@ -146,6 +155,9 @@ conventional messages that match the repo's history). Fill each PR body from
 the template. Call `workflow_propose_history`.
 
 Revise and call it again on any `chat` or `history_changed` event with text.
+`history_edited` means the user edited titles, branches, commit messages or
+descriptions with the pencil. Their version is final, so build on it and
+never revert it. The `publish` event carries the final `prs`.
 On `publish`, with `workflow_status(phase: "publishing")` updates:
 
 1. Create each branch from its base (stacked PRs branch from their parent),

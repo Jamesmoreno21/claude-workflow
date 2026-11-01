@@ -89,12 +89,18 @@ export class Workflow {
     return this.s.waitForUser();
   }
 
-  beginFile(repoName: string, path: string, planRef?: string, intent?: string) {
+  beginFile(repoName: string, path: string, planRef?: string, intent?: string, layer?: string) {
     this.s.update((s) => {
       s.phase = "coding";
       const existing = s.files.find((f) => f.repo === repoName && f.path === path);
-      if (existing) Object.assign(existing, { status: "writing", planRef: planRef ?? existing.planRef, intent: intent ?? existing.intent });
-      else s.files.push({ repo: repoName, path, planRef, intent, status: "writing", revision: 0 });
+      if (existing)
+        Object.assign(existing, {
+          status: "writing",
+          planRef: planRef ?? existing.planRef,
+          intent: intent ?? existing.intent,
+          layer: layer ?? existing.layer,
+        });
+      else s.files.push({ repo: repoName, path, planRef, intent, layer, status: "writing", revision: 0 });
     });
     return this.s.drain();
   }

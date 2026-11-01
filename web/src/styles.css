@@ -162,7 +162,6 @@ main { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .option .opt-example { color: var(--text-3); font-size: 12.5px; font-style: italic; }
 .option.other textarea { flex: 1; background: transparent; border: 0; padding: 0; resize: none; }
 .rec { font-style: normal; font-size: 10.5px; font-weight: 600; color: var(--green); background: var(--green-soft); padding: 1px 7px; border-radius: 99px; }
-.claude-says { margin-top: 14px; padding: 10px 14px; border-left: 3px solid var(--blue); background: rgba(122,162,247,.07); border-radius: 0 8px 8px 0; color: var(--text-2); }
 .v-foot { display: flex; justify-content: space-between; align-items: center; padding: 14px 0 18px; border-top: 1px solid var(--line); }
 
 /* ---------- Plan ---------- */
@@ -336,3 +335,52 @@ main { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .hljs-attr, .hljs-property, .hljs-variable { color: #e7ebf3; }
 .hljs-tag, .hljs-name { color: #f07178; }
 .hljs-meta { color: #89ddff; }
+
+/* ---------- Replay controls ---------- */
+.ghost.sm { padding: 4px 10px; font-size: 13px; }
+.replay { display: flex; gap: 6px; align-items: center; padding: 6px 14px; border-top: 1px solid var(--line); background: var(--panel); }
+.play-btn { min-width: 38px; justify-content: center; }
+.replay-bar { flex: 1; height: 4px; background: var(--line); border-radius: 99px; overflow: hidden; margin: 0 6px; }
+.replay-bar div { height: 100%; background: var(--accent); transition: width .1s linear; }
+.replay-count { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.speeds { display: flex; border: 1px solid var(--line-2); border-radius: 8px; overflow: hidden; }
+.speeds button { background: none; border: 0; padding: 3px 8px; font-size: 12px; color: var(--text-3); }
+.speeds button.on { background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Layers ---------- */
+.why-text { flex: 1; min-width: 0; }
+.layers-toggle { background: none; border: 1px solid var(--line-2); border-radius: 8px; padding: 3px 9px; font-size: 12px; color: var(--text-3); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+.layers-toggle.on { color: var(--accent); border-color: var(--accent); }
+.layers { display: flex; gap: 0; align-items: stretch; padding: 8px 16px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.layer { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); white-space: nowrap; position: relative; margin-right: 22px; }
+.layer.on { border-color: var(--accent); background: var(--accent-soft); }
+.layer.empty { opacity: .4; border-style: dashed; }
+.layer-name { font-size: 12px; color: var(--text-2); }
+.layer.on .layer-name { color: var(--text); font-weight: 600; }
+.layer-files { display: flex; gap: 3px; }
+.pip { width: 8px; height: 8px; border-radius: 50%; background: var(--line-2); }
+.pip.approved { background: var(--green); }
+.pip.awaiting_approval, .pip.writing { background: var(--accent); }
+.pip.me { outline: 2px solid var(--text); outline-offset: 1px; }
+.layer-arrow { position: absolute; right: -18px; color: var(--text-3); font-size: 12px; }
+.layer-tag { margin-left: auto; font: 10px var(--sans); color: var(--text-3); border: 1px solid var(--line-2); border-radius: 99px; padding: 0 6px; white-space: nowrap; direction: ltr; }
+
+/* ---------- PR editing ---------- */
+.mono { font-family: var(--mono); font-size: 12.5px; }
+.pr-head { align-items: center; }
+.pr-head b { flex: 1; }
+.pencil { font-size: 15px; padding: 2px 6px; opacity: .6; }
+.pr-card:hover .pencil { opacity: 1; }
+.pr-card.editing { border-color: var(--accent); display: flex; flex-direction: column; gap: 12px; }
+.edit-field { display: flex; flex-direction: column; gap: 6px; }
+.edit-field > span { font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); display: flex; justify-content: space-between; align-items: center; }
+.commit-edit { display: flex; gap: 8px; align-items: center; }
+.commit-edit input { flex: 1; }
+.body-mode { text-transform: none; letter-spacing: 0; }
+.edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.why { flex-wrap: nowrap; min-width: 0; }
+.why-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1100px) {
+  .coding, .review { grid-template-columns: 180px minmax(0, 1fr); }
+  .replay-count, .speeds { display: none; }
+}

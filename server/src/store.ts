@@ -90,9 +90,15 @@ export class Store {
           if (f?.fix) f.fix.ready = false;
           break;
         }
+        case "history_edited":
+          // The user's own edits are authoritative; Claude sees them on its next wait.
+          if (s.history) s.history.prs = event.prs;
+          wakesClaude = false;
+          break;
         case "history_changed":
         case "publish":
           if (s.history) s.history.reviewers = event.reviewers;
+          if (event.type === "publish" && s.history) s.history.prs = event.prs;
           if (event.type === "history_changed" && !event.text) wakesClaude = false;
           break;
       }

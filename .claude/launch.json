@@ -6,6 +6,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["server/dist/server/src/demo.js", "--no-open"],
       "port": 4545
+    },
+    {
+      "name": "demo-alt",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["WORKFLOW_PORT=4600", "node", "server/dist/server/src/demo.js", "--no-open"],
+      "port": 4600
     }
   ]
 }

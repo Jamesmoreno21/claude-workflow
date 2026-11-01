@@ -191,15 +191,17 @@ const plan = {
       body: "Single PR, two commits: limiter, then wiring + tests.",
     },
   ],
+  layers: ["API route", "Service", "Data (Redis)", "Tests"],
   prs: [{ repo: "api", title: "Lock accounts after repeated failed logins", estimatedLines: 320, scope: "limiter + login wiring + tests" }],
 };
 await until(wf.presentPlan(plan), (e) => e.type === "plan_approved");
 
-const files: [string, string, string, string][] = [
+const files: [string, string, string, string, string][] = [
   [
     "src/auth/limiter.ts",
     "s3",
     "New Redis-backed limiter with check / fail / reset",
+    "Service",
     `import { redis } from "../redis";
 
 const MAX_PER_EMAIL = 5;
@@ -239,6 +241,7 @@ export async function reset(email: string) {
     "src/auth/login.ts",
     "s3",
     "Check the limiter before verifying, record the result after",
+    "API route",
     `import { Router } from "express";
 import { verifyPassword } from "./password";
 import { isLocked, recordFailure, reset } from "./limiter";
@@ -264,8 +267,8 @@ login.post("/login", async (req, res) => {
   ],
 ];
 
-for (const [path, planRef, intent, content] of files) {
-  wf.beginFile("api", path, planRef, intent);
+for (const [path, planRef, intent, layer, content] of files) {
+  wf.beginFile("api", path, planRef, intent, layer);
   await sleep(1500);
   write(path, content);
   await until(wf.fileReady("api", path), (e) => (e.type === "file_approved" && e.path === path) || e.type === "file_feedback", async (e) => {
@@ -287,7 +290,7 @@ const fixes: Record<number, () => void> = {
   1: () =>
     write(
       "src/auth/limiter.ts",
-      files[0][3].replace(
+      files[0][4].replace(
         "export async function recordFailure(email: string, ip: string) {\n  const e",
         "export async function recordFailure(email: string, ip: string) {\n  await redis.expire(`fail:e:${norm(email)}`, 15 * 60);\n  const e",
       ),
@@ -334,7 +337,7 @@ while (open() > 0) {
     if (e.type === "chat") wf.reply("(demo) In a real run I'd explain the finding here.", e.about);
     if (e.type === "finding_fix" || e.type === "fix_rejected") {
       await sleep(1200);
-      (fixes[e.id] ?? (() => write("src/auth/login.ts", files[1][3].replace("req.ip", "req.ip ?? \"unknown\""))))();
+      (fixes[e.id] ?? (() => write("src/auth/login.ts", files[1][4].replace("req.ip", "req.ip ?? \"unknown\""))))();
       fixing = wf.fixReady(e.id);
     }
   }

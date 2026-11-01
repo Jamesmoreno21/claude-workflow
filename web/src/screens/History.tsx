@@ -12,7 +12,6 @@ export function History() {
   const h = state.history!;
   const [reviewers, setReviewers] = useState<string[]>(h.reviewers);
   const [input, setInput] = useState("");
-  const [openBody, setOpenBody] = useState<string | null>(null);
   const repos = [...new Set(h.prs.map((p) => p.repo))];
 
   const addReviewer = (login: string) => {
@@ -38,43 +37,15 @@ export function History() {
             <h3 className="repo-tag">{repo}</h3>
             {h.prs
               .filter((p) => p.repo === repo)
-              .map((p) => {
-                const lines = prLines(p);
-                return (
-                  <article key={p.id} className="pr-card" onClick={() => setFocus({ about: `pr:${p.id}`, label: p.title })}>
-                    <div className="pr-head">
-                      <b>{p.title}</b>
-                      <span className={`size ${prSize(lines)}`}>{lines} lines</span>
-                    </div>
-                    <code className="branch">
-                      {p.branch} → {p.base}
-                      {p.dependsOn && <span className="muted"> · stacked on {h.prs.find((x) => x.id === p.dependsOn)?.title ?? p.dependsOn}</span>}
-                    </code>
-                    <ol className="commits">
-                      {p.commits.map((c, i) => (
-                        <li key={i}>
-                          <span className="c-dot" />
-                          <span className="c-msg">{c.message}</span>
-                          <span className={`c-size ${commitSize(c.added + c.removed)}`}>
-                            <span className="add">+{c.added}</span> <span className="del">−{c.removed}</span>
-                          </span>
-                          <small className="c-files">{c.files.join(", ")}</small>
-                        </li>
-                      ))}
-                    </ol>
-                    <button
-                      className="link"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenBody(openBody === p.id ? null : p.id);
-                      }}
-                    >
-                      {openBody === p.id ? "Hide description" : "PR description"}
-                    </button>
-                    {openBody === p.id && <Markdown className="pr-body" text={p.body} />}
-                  </article>
-                );
-              })}
+              .map((p) => (
+                <PRCard
+                  key={p.id}
+                  pr={p}
+                  parent={h.prs.find((x) => x.id === p.dependsOn)?.title}
+                  onFocus={() => setFocus({ about: `pr:${p.id}`, label: p.title })}
+                  onSave={(next) => send({ type: "history_edited", prs: h.prs.map((x) => (x.id === next.id ? next : x)) })}
+                />
+              ))}
           </section>
         ))}
       </div>
@@ -116,10 +87,126 @@ export function History() {
               </button>
             ))}
         </div>
-        <button className="primary big" disabled={!state.claudeWaiting} onClick={() => send({ type: "publish", reviewers })}>
+        <button className="primary big" disabled={!state.claudeWaiting} onClick={() => send({ type: "publish", reviewers, prs: h.prs })}>
           Publish {h.prs.length} PR{h.prs.length > 1 ? "s" : ""} to GitHub
         </button>
       </footer>
     </div>
+  );
+}
+
+function PRCard({ pr, parent, onFocus, onSave }: { pr: ProposedPR; parent?: string; onFocus(): void; onSave(pr: ProposedPR): void }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(pr);
+  const [showBody, setShowBody] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const lines = prLines(pr);
+
+  const start = () => {
+    setDraft(structuredClone(pr));
+    setPreview(false);
+    setEditing(true);
+  };
+  const save = () => {
+    onSave(draft);
+    setEditing(false);
+  };
+  const setCommit = (i: number, message: string) =>
+    setDraft({ ...draft, commits: draft.commits.map((c, j) => (j === i ? { ...c, message } : c)) });
+
+  if (editing)
+    return (
+      <article className="pr-card editing">
+        <label className="edit-field">
+          <span>Title</span>
+          <input autoFocus value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+        </label>
+        <label className="edit-field">
+          <span>Branch</span>
+          <input className="mono" value={draft.branch} onChange={(e) => setDraft({ ...draft, branch: e.target.value })} />
+        </label>
+        <div className="edit-field">
+          <span>Commits</span>
+          {draft.commits.map((c, i) => (
+            <div key={i} className="commit-edit">
+              <input className="mono" value={c.message} onChange={(e) => setCommit(i, e.target.value)} />
+              <span className="c-size">
+                <span className="add">+{c.added}</span> <span className="del">−{c.removed}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="edit-field">
+          <span>
+            Description
+            <span className="seg body-mode">
+              <button className={!preview ? "on" : ""} onClick={() => setPreview(false)}>
+                Write
+              </button>
+              <button className={preview ? "on" : ""} onClick={() => setPreview(true)}>
+                Preview
+              </button>
+            </span>
+          </span>
+          {preview ? (
+            <Markdown className="pr-body" text={draft.body} />
+          ) : (
+            <textarea rows={10} className="mono" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+          )}
+        </div>
+        <div className="edit-actions">
+          <button className="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </button>
+          <button className="primary" onClick={save}>
+            Save
+          </button>
+        </div>
+      </article>
+    );
+
+  return (
+    <article className="pr-card" onClick={onFocus}>
+      <div className="pr-head">
+        <b>{pr.title}</b>
+        <span className={`size ${prSize(lines)}`}>{lines} lines</span>
+        <button
+          className="icon pencil"
+          title="Edit title, branch, commits and description"
+          onClick={(e) => {
+            e.stopPropagation();
+            start();
+          }}
+        >
+          ✎
+        </button>
+      </div>
+      <code className="branch">
+        {pr.branch} → {pr.base}
+        {parent && <span className="muted"> · stacked on {parent}</span>}
+      </code>
+      <ol className="commits">
+        {pr.commits.map((c, i) => (
+          <li key={i}>
+            <span className="c-dot" />
+            <span className="c-msg">{c.message}</span>
+            <span className={`c-size ${commitSize(c.added + c.removed)}`}>
+              <span className="add">+{c.added}</span> <span className="del">−{c.removed}</span>
+            </span>
+            <small className="c-files">{c.files.join(", ")}</small>
+          </li>
+        ))}
+      </ol>
+      <button
+        className="link"
+        onClick={(e) => {
+          e.stopPropagation();
+          setShowBody(!showBody);
+        }}
+      >
+        {showBody ? "Hide description" : "PR description"}
+      </button>
+      {showBody && <Markdown className="pr-body" text={pr.body} />}
+    </article>
   );
 }

@@ -59,7 +59,6 @@ export function Validation() {
 
   if (!q) return null;
   const a = answers[q.id];
-  const claudeSays = [...state.chat].reverse().find((m) => m.from === "claude" && m.about === `question:${q.id}`);
 
   return (
     <div className="validation">
@@ -123,7 +122,6 @@ export function Validation() {
           </div>
         </div>
 
-        {claudeSays && <div className="claude-says">Claude: {claudeSays.text}</div>}
       </article>
 
       <footer className="v-foot">
