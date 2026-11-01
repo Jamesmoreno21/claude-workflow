@@ -35,7 +35,7 @@
     "release": "bash scripts/release.sh"
   },
   "devDependencies": {
-    "@eslint/js": "~9.39.5",
+    "@eslint/js": "~10.0.1",
     "@playwright/test": "~1.64.1",
     "eslint": "~9.39.5",
     "eslint-plugin-react-hooks": "~7.1.1",
