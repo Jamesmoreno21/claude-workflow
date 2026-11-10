@@ -12,12 +12,17 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 - Finish by committing locally, pushing branches, or pushing and opening PRs.
 - Add and remove repositories from the ⚙ panel; end the workflow from there.
 - A loader while Claude works on what you sent, with a hint when it doesn't pick it up.
+- "Typing on/off" in the editor: turn off the line-by-line replay to see each file's whole change at once.
+- Click a plan diagram to view it full screen, with zoom.
+- Read the decisions and the plan again from the header once you've moved on (read only).
 
 ### Fixed
 
 - Claude no longer loses the cockpit: a Stop hook keeps it listening while the workflow is open, and an optional channel wakes an idle session.
 - Starting a second workflow in the same session no longer shows the previous task's questions, answers or files.
 - Shortcuts and push-to-talk no longer fire while typing in the editor.
+- Faster Kokoro narration: the voice model loads and warms up when the cockpit opens, runs on several CPU threads, speaks short phrases so audio starts sooner, and prepares the next slide while the current one plays.
+- Sent answers can no longer be changed while Claude reads them.
 - The MCP server exits with its Claude Code session instead of lingering.
 - Slow folders (for example ones macOS asks permission for) no longer freeze the cockpit.
 

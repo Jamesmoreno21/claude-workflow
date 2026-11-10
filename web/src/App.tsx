@@ -5,6 +5,7 @@ import { Chat } from "./components/Chat";
 import { ContextDrawer } from "./components/ContextDrawer";
 import { HandoffOverlay, type Handoff } from "./components/HandoffOverlay";
 import { Header } from "./components/Header";
+import { PastSteps, type PastStep } from "./components/PastSteps";
 import { PHASES_WITH_CHAT } from "./constants/phases";
 import { MIC_TOGGLE_LABEL } from "./constants/shortcuts";
 import { useConnection } from "./hooks/useConnection";
@@ -78,6 +79,7 @@ function Cockpit({ state, connected, sendEvent }: { state: WorkflowState; connec
   };
   const [focus, setFocus] = useState<Focus>({});
   const [contextOpen, setContextOpen] = useState(false);
+  const [pastStep, setPastStep] = useState<PastStep | null>(null);
   const talk = usePushToTalk((text) => send({ type: "chat", text, via: "voice", about: focus.about }));
   useSpeakClaudeReplies(state.chat);
 
@@ -87,7 +89,7 @@ function Cockpit({ state, connected, sendEvent }: { state: WorkflowState; connec
   return (
     <AppContext.Provider value={{ state, send, focus, setFocus }}>
       <div className="app">
-        <Header onOpenContext={() => setContextOpen(true)} connected={connected} />
+        <Header onOpenContext={() => setContextOpen(true)} onOpenPast={setPastStep} connected={connected} />
         <div className={`body ${withChat ? "with-chat" : ""}`}>
           <main>
             <Suspense fallback={<LoadingScreen />}>
@@ -110,6 +112,7 @@ function Cockpit({ state, connected, sendEvent }: { state: WorkflowState; connec
           </div>
         )}
         {contextOpen && <ContextDrawer onClose={() => setContextOpen(false)} />}
+        {pastStep && <PastSteps step={pastStep} onStep={setPastStep} onClose={() => setPastStep(null)} />}
       </div>
     </AppContext.Provider>
   );

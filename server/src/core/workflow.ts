@@ -108,6 +108,8 @@ export class Workflow {
     this.run.update((s) => {
       s.phase = "validation";
       s.questions = [...s.questions.filter((q) => !ids.has(q.id)), ...questions];
+      // A question Claude asks again can be answered again.
+      s.submitted = s.submitted.filter((id) => !ids.has(id));
     });
     return this.run.waitForUser();
   }

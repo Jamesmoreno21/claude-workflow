@@ -56,3 +56,18 @@ describe("Validation", () => {
     expect(screen.getByText("Question t1?")).toBeTruthy();
   });
 });
+
+describe("Validation after sending", () => {
+  it("keeps sent answers read only", () => {
+    const { send } = renderScreen(
+      <ValidationScreen />,
+      makeState({ questions: [q("q1")], answers: { q1: { optionId: "a" } }, submitted: ["q1"] }),
+    );
+    fireEvent.click(screen.getByText("q1 option B"));
+    act(() => void fireEvent.keyDown(window, { key: "2" }));
+    act(() => void fireEvent.keyDown(window, { key: "Enter" }));
+    expect(send).not.toHaveBeenCalled();
+    expect(screen.getByText("q1 option A").closest("button")!.className).toContain("picked");
+    expect(screen.getByText("✓ Answers sent")).toBeTruthy();
+  });
+});

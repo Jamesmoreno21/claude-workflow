@@ -236,6 +236,8 @@ export interface WorkflowState {
   status: { message: string; log: string[] };
   questions: Question[];
   answers: Record<string, Answer>;
+  /** Questions whose answers the user has sent; they're read only from then on. */
+  submitted: string[];
   plan: Plan | null;
   files: FileEntry[];
   summary: CodeSummary | null;

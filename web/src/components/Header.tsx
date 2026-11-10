@@ -4,6 +4,7 @@ import { STEP_OF } from "../constants/phases";
 import { MIC_TOGGLE_LABEL } from "../constants/shortcuts";
 import { speechRecognitionSupported } from "../services/speech-recognition";
 import { NarrationSettings } from "./NarrationSettings";
+import type { PastStep } from "./PastSteps";
 
 function TurnIndicator({ connected }: { connected: boolean }) {
   const { state } = useApp();
@@ -12,7 +13,18 @@ function TurnIndicator({ connected }: { connected: boolean }) {
   return state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>;
 }
 
-export function Header({ onOpenContext, connected }: { onOpenContext: () => void; connected: boolean }) {
+/** Finished steps whose content can be read again from the stepper. */
+const REVIEWABLE: Record<string, PastStep> = { validation: "validation", plan: "plan" };
+
+export function Header({
+  onOpenContext,
+  onOpenPast,
+  connected,
+}: {
+  onOpenContext: () => void;
+  onOpenPast: (step: PastStep) => void;
+  connected: boolean;
+}) {
   const { state } = useApp();
   const currentStep = PHASES.findIndex((p) => p.id === STEP_OF[state.phase]);
 
@@ -26,8 +38,21 @@ export function Header({ onOpenContext, connected }: { onOpenContext: () => void
       <ol className="stepper">
         {PHASES.map((step, i) => (
           <li key={step.id} className={i < currentStep ? "done" : i === currentStep ? "now" : ""}>
-            <span className="dot">{i < currentStep ? "✓" : i + 1}</span>
-            {step.label}
+            {i < currentStep && REVIEWABLE[step.id] ? (
+              <button
+                className="step-link"
+                onClick={() => onOpenPast(REVIEWABLE[step.id])}
+                title={`Read the ${step.label.toLowerCase()} again`}
+              >
+                <span className="dot">✓</span>
+                {step.label}
+              </button>
+            ) : (
+              <>
+                <span className="dot">{i < currentStep ? "✓" : i + 1}</span>
+                {step.label}
+              </>
+            )}
           </li>
         ))}
       </ol>

@@ -31,6 +31,7 @@ export class Store {
       status: { message: INITIAL_STATUS, log: [] },
       questions: [],
       answers: {},
+      submitted: [],
       plan: null,
       files: [],
       summary: null,
@@ -100,6 +101,7 @@ export class Store {
           break;
         case "answers":
           s.answers = { ...s.answers, ...event.answers };
+          s.submitted = [...new Set([...s.submitted, ...Object.keys(event.answers)])];
           break;
         case "context_changed":
           s.context = event.context;

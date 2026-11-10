@@ -8,7 +8,7 @@ import { SLIDE_ADVANCE_MS } from "../constants/ui";
 import { useHotkeys } from "../hooks/useHotkeys";
 import { prSizeClass } from "../lib/size";
 import { onTalkStart } from "../services/speech-recognition";
-import { speak, stopSpeaking } from "../services/tts";
+import { prefetchNarration, speak, stopSpeaking } from "../services/tts";
 
 /** Ids of slides whose content differs from the previous version of the plan. */
 function changedSlideIds(before: Slide[], after: Slide[]) {
@@ -91,7 +91,11 @@ export function PlanScreen() {
   useEffect(() => {
     if (!playing) return stopSpeaking();
     let current = true;
-    void speak(slide.narration).then(() => {
+    const speaking = speak(slide.narration);
+    // Generate the next slide's audio while this one plays, so there's no gap.
+    const next = slides[index + 1];
+    if (next) prefetchNarration(next.narration);
+    void speaking.then(() => {
       if (!current) return;
       if (index < slides.length - 1) setTimeout(() => current && setIndex((i) => i + 1), SLIDE_ADVANCE_MS);
       else setPlaying(false);
@@ -99,7 +103,10 @@ export function PlanScreen() {
     return () => {
       current = false;
     };
-  }, [playing, slide.narration, index, slides.length]);
+  }, [playing, slide.narration, index, slides]);
+
+  // Ready the slide on screen before Narrate is pressed.
+  useEffect(() => prefetchNarration(slide.narration), [slide.narration]);
 
   useHotkeys((e) => {
     if (e.key === "ArrowRight") goTo(index + 1);

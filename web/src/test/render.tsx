@@ -12,6 +12,7 @@ export function makeState(patch: Partial<WorkflowState> = {}): WorkflowState {
     status: { message: "", log: [] },
     questions: [],
     answers: {},
+    submitted: [],
     plan: null,
     files: [],
     summary: null,

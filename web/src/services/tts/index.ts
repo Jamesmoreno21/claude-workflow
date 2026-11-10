@@ -9,7 +9,7 @@ import { VOICES } from "../../constants/tts";
 import { getTtsAvailability } from "../api";
 import { stopAudio } from "./audio";
 import { speakWithSystemVoice, stopSystemVoice } from "./browser";
-import { cancelKokoro, onModelStatus, preloadKokoro, speakKokoro, type ModelStatus } from "./kokoro";
+import { onModelStatus, playKokoro, prefetchKokoro, preloadKokoro, type ModelStatus } from "./kokoro";
 import { cancelRemote, speakRemote } from "./remote";
 
 export interface NarrationStatus extends ModelStatus {
@@ -27,6 +27,12 @@ function setStatus(patch: Partial<NarrationStatus>) {
 }
 
 onModelStatus((model) => setStatus(model));
+
+// Load and warm up the model as soon as the cockpit opens, not on the first narration.
+{
+  const { muted, provider } = getPreference("narration");
+  if (!muted && provider === "kokoro" && typeof Worker !== "undefined") setTimeout(preloadKokoro, 1500);
+}
 void getTtsAvailability().then((available) => available && setStatus({ available }));
 
 export function useNarrationStatus() {
@@ -45,6 +51,9 @@ export function updateNarration(patch: Partial<NarrationPreferences>) {
 
 let nextId = 1;
 let currentId = 0;
+let stopKokoro: (() => void) | null = null;
+
+const kokoroVoice = (voices: NarrationPreferences["voices"]) => voices.kokoro ?? VOICES.kokoro![0].id;
 
 /** Speaks `text`, replacing anything already playing. Resolves when done or interrupted. */
 export async function speak(text: string): Promise<void> {
@@ -54,8 +63,11 @@ export async function speak(text: string): Promise<void> {
   const id = (currentId = nextId++);
   setStatus({ speaking: true, fallbackError: undefined });
   try {
-    if (provider === "kokoro") await speakKokoro(id, text, voices.kokoro ?? VOICES.kokoro![0].id, speed);
-    else if (provider === "elevenlabs" || provider === "openai") await speakRemote(provider, text, voices[provider], speed);
+    if (provider === "kokoro") {
+      const playback = playKokoro(text, kokoroVoice(voices), speed);
+      stopKokoro = playback.stop;
+      await playback.finished;
+    } else if (provider === "elevenlabs" || provider === "openai") await speakRemote(provider, text, voices[provider], speed);
     else await speakWithSystemVoice(text, speed);
   } catch (err) {
     if ((err as Error).name === "AbortError" || id !== currentId) return;
@@ -67,8 +79,15 @@ export async function speak(text: string): Promise<void> {
   }
 }
 
+/** Prepares narration that's likely next (e.g. the next slide), so it starts without delay. */
+export function prefetchNarration(text: string) {
+  const { muted, provider, voices, speed } = getPreference("narration");
+  if (!muted && provider === "kokoro" && text.trim()) prefetchKokoro(text, kokoroVoice(voices), speed);
+}
+
 export function stopSpeaking() {
-  if (currentId) cancelKokoro(currentId);
+  stopKokoro?.();
+  stopKokoro = null;
   currentId = 0;
   cancelRemote();
   stopAudio();

@@ -121,7 +121,9 @@ export function WorkspaceScreen() {
   const before = taskFile?.before;
   const after = taskFile?.after;
   const rows = useDiffRows(before, after);
-  const replaying = !review && taskFile?.status === "awaiting_approval";
+  const [replayCode, setReplayCode] = usePreference("replayCode");
+  const awaitingApproval = !review && taskFile?.status === "awaiting_approval";
+  const replaying = awaitingApproval && replayCode;
   const replay = useReplay(rows, taskFile ? `${fileKey(taskFile)}#${taskFile.revision}` : "", replaying);
   const typed = replaying && !replay.done ? typedText(rows, replay.pos) : null;
   const fixShown = review && finding?.status === "fixing" && finding.fix?.ready && sameFile(finding, doc) ? finding : undefined;
@@ -180,7 +182,7 @@ export function WorkspaceScreen() {
   const [sideBySide, setSideBySide] = useState(false);
   const slide = state.plan?.slides.find((s) => s.id === taskFile?.planRef);
   const layers = state.plan?.layers?.length ? state.plan.layers : [...new Set(files.map((f) => f.layer).filter((l) => l !== undefined))];
-  const canApprove = replaying && replay.done && state.claudeWaiting && !dirty;
+  const canApprove = awaitingApproval && replay.done && state.claudeWaiting && !dirty;
   const approve = () =>
     taskFile &&
     send({ type: "file_approved", repo: taskFile.repo, path: taskFile.path }, { handoff: "Claude is moving to the next file…" });
@@ -259,6 +261,15 @@ export function WorkspaceScreen() {
           {dirty && (
             <button className="primary sm save-btn" onClick={() => editorHandle.current?.save()} title="Save to disk (⌘S)">
               Save <kbd>⌘S</kbd>
+            </button>
+          )}
+          {!review && (
+            <button
+              className={`layers-toggle ${replayCode ? "on" : ""}`}
+              onClick={() => setReplayCode(!replayCode)}
+              title="Type each file's change out line by line, or show the whole change at once"
+            >
+              Typing {replayCode ? "on" : "off"}
             </button>
           )}
           <button

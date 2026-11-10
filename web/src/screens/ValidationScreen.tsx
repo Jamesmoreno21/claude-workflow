@@ -42,9 +42,13 @@ export function ValidationScreen() {
 
   const answers = { ...state.answers, ...draft };
   const answeredCount = questions.filter((q) => isAnswered(answers[q.id])).length;
-  const canSubmit = answeredCount === questions.length && state.claudeWaiting;
+  // Once sent, answers are read only (until Claude asks a question again).
+  const isSent = (id: string) => state.submitted.includes(id);
+  const stageSent = questions.length > 0 && questions.every((q) => isSent(q.id));
+  const canSubmit = answeredCount === questions.length && state.claudeWaiting && !stageSent;
 
   const pick = (answer: Answer) => {
+    if (isSent(question.id)) return;
     setDraft({ ...draft, [question.id]: answer });
     if (answer.optionId && index < questions.length - 1) setTimeout(() => goTo(index + 1), ANSWER_ADVANCE_MS);
   };
@@ -75,6 +79,7 @@ export function ValidationScreen() {
 
   if (!question) return null;
   const answer = answers[question.id];
+  const locked = isSent(question.id);
   const exampleOpen = exampleOpenFor === question.id;
 
   return (
@@ -116,7 +121,8 @@ export function ValidationScreen() {
           {question.options.map((option, i) => (
             <button
               key={option.id}
-              className={`option ${answer?.optionId === option.id ? "picked" : ""}`}
+              className={`option ${answer?.optionId === option.id ? "picked" : ""} ${locked ? "locked" : ""}`}
+              disabled={locked}
               onClick={() => pick({ optionId: option.id })}
             >
               <kbd>{i + 1}</kbd>
@@ -137,6 +143,7 @@ export function ValidationScreen() {
               rows={2}
               placeholder={`Something else… (or ${MIC_TOGGLE_LABEL} and say it)`}
               value={answer?.optionId ? "" : (answer?.text ?? "")}
+              readOnly={locked}
               onChange={(e) => setDraft({ ...draft, [question.id]: { text: e.target.value } })}
               onKeyDown={(e) => e.key === "Escape" && (e.target as HTMLElement).blur()}
             />
@@ -155,6 +162,8 @@ export function ValidationScreen() {
           <button className="ghost" onClick={() => goTo(index + 1)}>
             Next →
           </button>
+        ) : stageSent ? (
+          <span className="sent-badge">✓ Answers sent</span>
         ) : (
           <button className="primary" disabled={!canSubmit} onClick={submit}>
             {stage === "product" ? "Send product answers" : "Send answers, build the plan"} ⏎
