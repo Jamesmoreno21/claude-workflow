@@ -1,7 +1,9 @@
 import { useState } from "react";
-import type { ProposedPR } from "../../../shared/protocol";
+import { PUBLISH_MODES, type ProposedPR } from "../../../shared/protocol";
 import { useApp } from "../app/AppContext";
 import { Markdown } from "../components/Markdown";
+import { usePreference } from "../config/settings";
+import { FINISH_MODE } from "../constants/labels";
 import { REVIEWER_SUGGESTIONS } from "../constants/ui";
 import { commitSizeClass, prLines, prSizeClass } from "../lib/size";
 
@@ -177,11 +179,12 @@ function ReviewerPicker({ reviewers, onChange }: { reviewers: string[]; onChange
   );
 }
 
-/** Proposed PRs and commits per repo; editable, then published. */
+/** Proposed PRs and commits per repo: editable, then committed, pushed, or opened as PRs. */
 export function HistoryScreen() {
   const { state, send, setFocus } = useApp();
   const history = state.history!;
   const [reviewers, setReviewers] = useState(history.reviewers);
+  const [finishMode, setFinishMode] = usePreference("finishMode");
   const repos = [...new Set(history.prs.map((pr) => pr.repo))];
 
   const changeReviewers = (next: string[]) => {
@@ -213,20 +216,36 @@ export function HistoryScreen() {
       </div>
 
       <footer className="publish-bar">
-        <div className="people">
-          {history.assignee && (
-            <span className="person">
-              Assignee <b>@{history.assignee}</b>
-            </span>
-          )}
-          <ReviewerPicker reviewers={reviewers} onChange={changeReviewers} />
+        <div className="finish-modes" role="radiogroup" aria-label="How to finish">
+          {PUBLISH_MODES.map((mode) => (
+            <button
+              key={mode}
+              role="radio"
+              aria-checked={finishMode === mode}
+              className={finishMode === mode ? "on" : ""}
+              title={FINISH_MODE[mode].hint}
+              onClick={() => setFinishMode(mode)}
+            >
+              {FINISH_MODE[mode].label}
+            </button>
+          ))}
         </div>
+        {finishMode === "pr" && (
+          <div className="people">
+            {history.assignee && (
+              <span className="person">
+                Assignee <b>@{history.assignee}</b>
+              </span>
+            )}
+            <ReviewerPicker reviewers={reviewers} onChange={changeReviewers} />
+          </div>
+        )}
         <button
           className="primary big"
           disabled={!state.claudeWaiting}
-          onClick={() => send({ type: "publish", reviewers, prs: history.prs })}
+          onClick={() => send({ type: "publish", mode: finishMode, reviewers, prs: history.prs })}
         >
-          Publish {history.prs.length} PR{history.prs.length > 1 ? "s" : ""} to GitHub
+          {FINISH_MODE[finishMode].action(history.prs.length)}
         </button>
       </footer>
     </div>

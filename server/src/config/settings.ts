@@ -21,6 +21,14 @@ export const settings = {
   get home() {
     return env("WORKFLOW_HOME") ?? join(homedir(), ".claude-workflow");
   },
+  /** The built UI; the plugin sets it, a source checkout finds web/dist itself. */
+  get webDist() {
+    return env("WORKFLOW_WEB_DIST");
+  },
+  /** Set by the plugin build; a source checkout reads server/package.json. */
+  get version() {
+    return env("WORKFLOW_VERSION");
+  },
   /** Extra origin allowed while developing the UI (e.g. Vite on :5173). */
   get devOrigin() {
     return env("WORKFLOW_DEV_ORIGIN");

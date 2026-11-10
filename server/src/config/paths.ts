@@ -1,33 +1,41 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { MEMORY_FILE, SESSIONS_DIR } from "./constants.js";
+import { MEMORY_FILE, RUNTIME_DIR, SESSIONS_DIR } from "./constants.js";
 import { settings } from "./settings.js";
 
-/**
- * The repo root, found by walking up to the root package.json. Works from
- * both src/ (tests) and dist/server/src/ (built), at any folder depth.
- */
-function findRoot(): string {
+/** The source checkout's root (the root package.json), or null inside the bundled plugin. */
+function findRepoRoot(): string | null {
   let dir = dirname(fileURLToPath(import.meta.url));
   while (dir !== dirname(dir)) {
     const pkg = join(dir, "package.json");
     if (existsSync(pkg) && JSON.parse(readFileSync(pkg, "utf8")).name === "claude-workflow") return dir;
     dir = dirname(dir);
   }
-  throw new Error("Could not find the claude-workflow root");
+  return null;
 }
 
-const root = findRoot();
+const repoRoot = findRepoRoot();
 
 export const paths = {
-  root,
-  webDist: join(root, "web", "dist"),
-  serverPackage: join(root, "server", "package.json"),
+  get webDist() {
+    if (settings.webDist) return settings.webDist;
+    if (!repoRoot) throw new Error("WORKFLOW_WEB_DIST is not set and no source checkout was found");
+    return join(repoRoot, "web", "dist");
+  },
   get memoryFile() {
     return join(settings.home, MEMORY_FILE);
   },
   get sessionsDir() {
     return join(settings.home, SESSIONS_DIR);
   },
+  /** One file per running cockpit, so the Stop hook can find this session's. */
+  get runtimeDir() {
+    return join(settings.home, RUNTIME_DIR);
+  },
 };
+
+export function appVersion(): string {
+  if (settings.version) return settings.version;
+  return repoRoot ? JSON.parse(readFileSync(join(repoRoot, "server", "package.json"), "utf8")).version : "dev";
+}

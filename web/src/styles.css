@@ -1992,3 +1992,29 @@ main {
 .err {
   color: var(--red);
 }
+
+/* ---------- Finish modes ---------- */
+.finish-modes {
+  display: flex;
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.finish-modes button {
+  background: none;
+  border: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.finish-modes button + button {
+  border-left: 1px solid var(--line-2);
+}
+.finish-modes button.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.publish-bar .people {
+  flex: 1;
+}

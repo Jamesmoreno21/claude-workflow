@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "workflow": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/mcp.mjs"],
+      "env": {
+        "WORKFLOW_WEB_DIST": "${CLAUDE_PLUGIN_ROOT}/web",
+        "WORKFLOW_VERSION": "0.0.0"
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "jamesmoreno21",
+  "owner": { "name": "Jamesmoreno21", "url": "https://github.com/Jamesmoreno21" },
+  "description": "Claude Code plugins by Jamesmoreno21",
+  "plugins": [
+    {
+      "name": "workflow",
+      "displayName": "Workflow cockpit",
+      "description": "Run a coding task through a local cockpit UI: validate decisions, narrated plan, file-by-file coding, pre-review, and commits or PRs, with voice.",
+      "category": "development",
+      "tags": ["workflow", "code-review", "voice"],
+      "source": { "source": "github", "repo": "Jamesmoreno21/claude-workflow", "ref": "plugin" }
+    }
+  ]
+}

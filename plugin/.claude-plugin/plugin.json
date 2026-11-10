@@ -1,0 +1,11 @@
+{
+  "name": "workflow",
+  "displayName": "Workflow cockpit",
+  "version": "0.0.0",
+  "description": "Run a coding task through a local cockpit UI: validate decisions, narrated plan, file-by-file coding, pre-review, and commits or PRs, with voice.",
+  "author": { "name": "Jamesmoreno21", "url": "https://github.com/Jamesmoreno21" },
+  "homepage": "https://github.com/Jamesmoreno21/claude-workflow#readme",
+  "repository": "https://github.com/Jamesmoreno21/claude-workflow",
+  "license": "MIT",
+  "keywords": ["workflow", "code-review", "voice", "cockpit"]
+}

@@ -7,6 +7,7 @@ export const MAX_SOCKET_MESSAGE_BYTES = 1024 * 1024;
 
 export const MEMORY_FILE = "memory.json";
 export const SESSIONS_DIR = "sessions";
+export const RUNTIME_DIR = "runtime";
 export const SESSION_SAVE_DEBOUNCE_MS = 500;
 export const MEMORY_LIMITS = { repos: 30, styleGuides: 15, reviewers: 30, styleGuideName: 60 };
 

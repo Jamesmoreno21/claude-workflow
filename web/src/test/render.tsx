@@ -17,7 +17,7 @@ export function makeState(patch: Partial<WorkflowState> = {}): WorkflowState {
     summary: null,
     findings: [],
     history: null,
-    published: [],
+    outcome: null,
     chat: [],
     claudeWaiting: true,
     memory: { reviewers: [] },

@@ -4,7 +4,7 @@ import { COMMIT_LINES_TARGET, PR_LINES_MAX, PR_LINES_TARGET } from "../../../sha
 import type { Workflow } from "../core/workflow.js";
 import { loadMemory } from "../services/memory.js";
 import { eventsResult, text } from "./results.js";
-import { answer, finding, plannedPr, pr, publishedLink, question, repo, slide } from "./schemas.js";
+import { answer, finding, outcome, plannedPr, pr, question, repo, slide } from "./schemas.js";
 
 /** Registers every workflow_* tool. Descriptions are written for Claude. */
 export function registerTools(mcp: McpServer, workflow: Workflow) {
@@ -145,12 +145,25 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
   mcp.registerTool(
     "workflow_published",
     {
-      description: "Everything is pushed. Show the final screen with PR links.",
-      inputSchema: { links: z.array(publishedLink) },
+      description:
+        "The commit step is done (local commits, pushed branches, or PRs, per the publish event's mode). Shows the final screen.",
+      inputSchema: outcome,
     },
-    async ({ links }) => {
-      workflow.published(links);
-      return text("Done screen shown.");
+    async (result) => {
+      workflow.published(result);
+      return text("Done screen shown. The workflow is finished; you may end your turn.");
+    },
+  );
+
+  mcp.registerTool(
+    "workflow_end",
+    {
+      description:
+        "End the workflow early when the user asks for it in the terminal. The cockpit shows it ended and you may end your turn. Not needed after workflow_published.",
+    },
+    async () => {
+      workflow.end();
+      return text("Workflow ended.");
     },
   );
 

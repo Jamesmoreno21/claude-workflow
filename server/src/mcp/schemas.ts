@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { FINDING_CATEGORIES, QUESTION_STAGES, REPO_ROLES, SEVERITIES, SLIDE_KINDS } from "../../../shared/protocol.js";
+import { FINDING_CATEGORIES, PUBLISH_MODES, QUESTION_STAGES, REPO_ROLES, SEVERITIES, SLIDE_KINDS } from "../../../shared/protocol.js";
 
 // Tool input schemas. The descriptions are what Claude reads, so they say
 // what good input looks like, not just its type.
@@ -72,6 +72,13 @@ export const pr = z.object({
   dependsOn: z.string().optional().describe("id of the PR this one stacks on"),
 });
 
-export const publishedLink = z.object({ repo: z.string(), title: z.string(), url: z.string() });
+export const outcome = {
+  mode: z.enum(PUBLISH_MODES).describe("Echo the mode from the publish event"),
+  branches: z.array(z.object({ repo: z.string(), branch: z.string(), commits: z.number().int() })),
+  links: z
+    .array(z.object({ repo: z.string(), title: z.string(), url: z.string() }))
+    .default([])
+    .describe("PR URLs (mode 'pr' only)"),
+};
 
 export const answer = z.object({ optionId: z.string().optional(), text: z.string().optional() });

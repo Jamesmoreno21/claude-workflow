@@ -3,7 +3,7 @@
 // sends `UserEvent`s back, which Claude receives from its waiting tools.
 
 export type Phase =
-  "research" | "validation" | "planning" | "plan" | "coding" | "code_ready" | "review" | "history" | "publishing" | "published";
+  "research" | "validation" | "planning" | "plan" | "coding" | "code_ready" | "review" | "history" | "publishing" | "published" | "ended";
 
 export const PHASES: { id: Phase; label: string }[] = [
   { id: "validation", label: "Validation" },
@@ -164,10 +164,28 @@ export interface History {
   assignee?: string;
 }
 
+/** local: commit only · push: push branches · pr: push and open pull requests */
+export const PUBLISH_MODES = ["local", "push", "pr"] as const;
+export type PublishMode = (typeof PUBLISH_MODES)[number];
+
 export interface PublishedLink {
   repo: string;
   title: string;
   url: string;
+}
+
+export interface PublishedBranch {
+  repo: string;
+  branch: string;
+  commits: number;
+}
+
+/** What the commit step produced, shown on the final screen. */
+export interface Outcome {
+  mode: PublishMode;
+  branches: PublishedBranch[];
+  /** Pull requests (mode "pr" only). */
+  links: PublishedLink[];
 }
 
 /* ---------- Chat ---------- */
@@ -181,6 +199,9 @@ export interface ChatMessage {
   /** What the message is about, e.g. "finding:3", "slide:s2", "file:api/user.ts". */
   about?: string;
 }
+
+/** Phases after which Claude may end its turn: nothing in the cockpit needs it. */
+export const FINISHED_PHASES: Phase[] = ["published", "ended"];
 
 /* ---------- State ---------- */
 
@@ -196,7 +217,7 @@ export interface WorkflowState {
   summary: CodeSummary | null;
   findings: Finding[];
   history: History | null;
-  published: PublishedLink[];
+  outcome: Outcome | null;
   chat: ChatMessage[];
   /** True while Claude is blocked on the user. False = Claude is working. */
   claudeWaiting: boolean;
@@ -218,7 +239,8 @@ export type UserEvent =
   | { type: "fix_rejected"; id: number; text?: string }
   | { type: "history_changed"; reviewers: string[]; text?: string }
   | { type: "history_edited"; prs: ProposedPR[] }
-  | { type: "publish"; reviewers: string[]; prs: ProposedPR[] }
-  | { type: "context_changed"; context: TaskContext };
+  | { type: "publish"; mode: PublishMode; reviewers: string[]; prs: ProposedPR[] }
+  | { type: "context_changed"; context: TaskContext }
+  | { type: "end_workflow" };
 
 export type ServerMessage = { type: "state"; state: WorkflowState };

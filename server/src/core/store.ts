@@ -15,6 +15,9 @@ export class Store {
   private listeners = new Set<Listener>();
   private pendingEvents: UserEvent[] = [];
   private wakeClaude: (() => void) | null = null;
+  private idlePingSent = false;
+  /** Called once when the user acts while Claude isn't waiting (e.g. to ping its session). */
+  onUserActsWhileClaudeIdle: (() => void) | null = null;
 
   constructor(context: TaskContext, reviewers: string[]) {
     this.state = {
@@ -29,7 +32,7 @@ export class Store {
       summary: null,
       findings: [],
       history: null,
-      published: [],
+      outcome: null,
       chat: [],
       claudeWaiting: false,
       memory: { reviewers },
@@ -52,7 +55,12 @@ export class Store {
   push(event: UserEvent) {
     const needsClaude = this.apply(event);
     this.pendingEvents.push(event);
-    if (needsClaude) this.wakeClaude?.();
+    if (!needsClaude) return;
+    if (this.wakeClaude) this.wakeClaude();
+    else if (!this.idlePingSent) {
+      this.idlePingSent = true;
+      this.onUserActsWhileClaudeIdle?.();
+    }
   }
 
   /** Updates the state for an event; returns whether Claude must react now. */
@@ -69,6 +77,9 @@ export class Store {
           break;
         case "context_changed":
           s.context = event.context;
+          break;
+        case "end_workflow":
+          s.phase = "ended";
           break;
         case "file_approved": {
           const file = s.files.find((f) => f.repo === event.repo && f.path === event.path);
@@ -119,6 +130,7 @@ export class Store {
 
   /** Everything the user did since Claude last looked, without waiting. */
   drain(): UserEvent[] {
+    this.idlePingSent = false;
     return this.pendingEvents.splice(0);
   }
 

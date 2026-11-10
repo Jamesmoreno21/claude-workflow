@@ -29,6 +29,7 @@ const SCREENS = {
   review: ReviewScreen,
   history: HistoryScreen,
   published: PublishedScreen,
+  ended: PublishedScreen,
 };
 
 /** Speaks Claude's new chat messages, never the history loaded on (re)connect. */

@@ -13,7 +13,8 @@ const NEXT_STEP: Partial<Record<UserEvent["type"], string>> = {
   history_changed: "Revise the proposal and call workflow_propose_history again.",
   history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
   publish:
-    "Create branches, commits and PRs exactly as in this event's `prs` (it includes the user's edits), then call workflow_published.",
+    "Create the branches and commits exactly as in this event's `prs` (it includes the user's edits). Then, by `mode`: 'local' stop there (don't push); 'push' push the branches; 'pr' push and open the PRs. Then call workflow_published with the mode.",
+  end_workflow: "The user ended the workflow from the cockpit. Stop calling workflow tools and say one line in the terminal.",
   context_changed: "The user edited the task context in the gear panel. Re-read it and adjust.",
 };
 

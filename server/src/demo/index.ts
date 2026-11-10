@@ -89,10 +89,11 @@ workflow.status("Reviewers are reading the changes…");
 await pause(1500);
 await runReview();
 
-await until(workflow.proposeHistory(demo.HISTORY), (e) => e.type === "publish");
+const publish = await until(workflow.proposeHistory(demo.HISTORY), (e) => e.type === "publish");
+const mode = publish.type === "publish" ? publish.mode : "local";
 for (const step of demo.PUBLISH_STEPS) {
   workflow.status(step, "publishing");
   await pause(1000);
 }
-workflow.published(demo.PUBLISHED_LINKS);
+workflow.published(demo.outcomeFor(mode));
 console.log("  Demo finished. Ctrl+C to exit.");

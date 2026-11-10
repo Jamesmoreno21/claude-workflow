@@ -1,4 +1,4 @@
-import { PHASES } from "../../../shared/protocol";
+import { FINISHED_PHASES, PHASES } from "../../../shared/protocol";
 import { useApp } from "../app/AppContext";
 import { STEP_OF } from "../constants/phases";
 import { MIC_TOGGLE_LABEL } from "../constants/shortcuts";
@@ -7,7 +7,7 @@ import { NarrationSettings } from "./NarrationSettings";
 
 function TurnIndicator({ connected }: { connected: boolean }) {
   const { state } = useApp();
-  if (state.phase === "published") return <span className="turn you">Done</span>;
+  if (FINISHED_PHASES.includes(state.phase)) return <span className="turn you">Done</span>;
   if (!connected) return <span className="turn off">Disconnected</span>;
   return state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>;
 }

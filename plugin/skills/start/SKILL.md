@@ -1,5 +1,5 @@
 ---
-name: workflow
+name: start
 description: Run a coding task through the Workflow cockpit — collect context, validate product and technical decisions, present a narrated plan, code file by file with approvals, pre-review with agents, and publish PRs. Use when the user types /workflow or asks to start a task "with the workflow".
 ---
 

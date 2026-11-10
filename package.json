@@ -32,11 +32,13 @@
     "format": "prettier --write . && eslint --fix .",
     "typecheck": "tsc -p server --noEmit && tsc -p web --noEmit",
     "demo:dev": "npm run build -w server && WORKFLOW_DEV_ORIGIN=http://localhost:5173 node server/bin/demo.js --no-open",
-    "release": "bash scripts/release.sh"
+    "release": "bash scripts/release.sh",
+    "build:plugin": "npm run build -w web && node scripts/build-plugin.mjs"
   },
   "devDependencies": {
     "@eslint/js": "~9.39.5",
     "@playwright/test": "~1.64.1",
+    "esbuild": "~0.28.2",
     "eslint": "~9.39.5",
     "eslint-plugin-react-hooks": "~7.1.1",
     "globals": "~17.14.0",

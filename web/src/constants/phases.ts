@@ -15,6 +15,7 @@ export const STEP_OF: Record<Phase, Phase> = {
   history: "history",
   publishing: "history",
   published: "published",
+  ended: "published",
 };
 
 export const LOADING_TITLES: Partial<Record<Phase, string>> = {

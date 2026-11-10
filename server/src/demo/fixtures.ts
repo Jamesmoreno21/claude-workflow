@@ -1,4 +1,4 @@
-import type { Plan, PublishedLink, Question, TaskContext } from "../../../shared/protocol.js";
+import type { Outcome, Plan, PublishMode, Question, TaskContext } from "../../../shared/protocol.js";
 import type { FileStart, NewFinding, ProposedHistory } from "../core/workflow.js";
 
 // A small, realistic task ("lock accounts after failed logins") used by the
@@ -318,6 +318,12 @@ export const HISTORY: ProposedHistory = {
 
 export const PUBLISH_STEPS = ["Creating branch feat/login-lockout…", "Committing 2 commits…", "Opening PR and requesting reviewers…"];
 
-export const PUBLISHED_LINKS: PublishedLink[] = [
-  { repo: REPO, title: "Lock accounts after repeated failed logins", url: "https://github.com/Jamesmoreno21/claude-workflow" },
-];
+/** What a real run reports after publishing, for each finish mode. */
+export const outcomeFor = (mode: PublishMode): Outcome => ({
+  mode,
+  branches: [{ repo: REPO, branch: "feat/login-lockout", commits: 2 }],
+  links:
+    mode === "pr"
+      ? [{ repo: REPO, title: "Lock accounts after repeated failed logins", url: "https://github.com/Jamesmoreno21/claude-workflow" }]
+      : [],
+});

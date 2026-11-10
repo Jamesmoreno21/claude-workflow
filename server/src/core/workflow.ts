@@ -7,7 +7,7 @@ import {
   type History,
   type Phase,
   type Plan,
-  type PublishedLink,
+  type Outcome,
   type Question,
   type RepoRef,
   type TaskContext,
@@ -18,6 +18,7 @@ import { startCockpitServer } from "../http/server.js";
 import { openInBrowser } from "../services/browser.js";
 import { diffStat, readAtHead, readWorking } from "../services/git.js";
 import { loadMemory, rememberContext, rememberReviewers } from "../services/memory.js";
+import { clearRuntime, publishRuntime } from "../services/runtime.js";
 import { Store } from "./store.js";
 
 export type LoadingPhase = Extract<Phase, "research" | "planning" | "publishing">;
@@ -43,9 +44,16 @@ function findRepo(repos: RepoRef[], name: string): RepoRef {
  * promise wait for the user; the others return pending events immediately.
  * The MCP tools and the demo both drive this class.
  */
+export interface WorkflowHooks {
+  /** The user acted in the cockpit while Claude wasn't waiting for them. */
+  onUserActsWhileClaudeIdle?: () => void;
+}
+
 export class Workflow {
   store: Store | null = null;
   url: string | null = null;
+
+  constructor(private hooks: WorkflowHooks = {}) {}
 
   private get run(): Store {
     if (!this.store) throw new Error("No workflow running. Call workflow_start first.");
@@ -62,7 +70,9 @@ export class Workflow {
       });
     } else {
       this.store = new Store(context, loadMemory().reviewers);
+      this.store.onUserActsWhileClaudeIdle = this.hooks.onUserActsWhileClaudeIdle ?? null;
       this.url = await startCockpitServer(this);
+      this.keepRuntimeEntryCurrent(this.store, this.url);
     }
     if (openBrowser) openInBrowser(this.url!);
     return this.url!;
@@ -181,10 +191,10 @@ export class Workflow {
     return this.run.waitForUser();
   }
 
-  published(links: PublishedLink[]) {
+  published(outcome: Outcome) {
     this.run.update((s) => {
       s.phase = "published";
-      s.published = links;
+      s.outcome = outcome;
     });
   }
 
@@ -198,6 +208,24 @@ export class Workflow {
 
   wait() {
     return this.run.waitForUser();
+  }
+
+  /** Closes the workflow so Claude may end its turn (the cockpit shows it ended). */
+  end() {
+    this.run.update((s) => {
+      s.phase = "ended";
+    });
+  }
+
+  /** Lets the Stop hook see whether this session still has a workflow open. */
+  private keepRuntimeEntryCurrent(store: Store, url: string) {
+    let lastPhase: string | null = null;
+    store.subscribe((state) => {
+      if (state.phase === lastPhase) return;
+      lastPhase = state.phase;
+      publishRuntime({ url, phase: state.phase });
+    });
+    process.once("exit", clearRuntime);
   }
 
   private read(repoName: string, path: string) {

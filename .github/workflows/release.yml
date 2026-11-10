@@ -40,6 +40,26 @@ jobs:
           ' CHANGELOG.md > notes.md
           test -s notes.md || { echo "No CHANGELOG entry for $version"; exit 1; }
 
+      # The installable plugin lives on the `plugin` branch: built files only, one
+      # commit per release, so users install without building anything.
+      - name: Build the plugin
+        run: npm run build:plugin
+
+      - name: Publish the plugin branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin plugin; then
+            git worktree add -B plugin ../plugin-branch origin/plugin
+          else
+            git worktree add --orphan -b plugin ../plugin-branch
+          fi
+          rsync -a --delete --exclude .git dist/plugin/ ../plugin-branch/
+          cd ../plugin-branch
+          git add -A
+          git commit -m "workflow plugin $GITHUB_REF_NAME" -m "Built from ${GITHUB_SHA}."
+          git push origin plugin
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

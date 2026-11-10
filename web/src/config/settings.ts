@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { PublishMode } from "../../../shared/protocol";
 import type { TtsProvider } from "../constants/tts";
 import { readJson, writeJson } from "../services/storage";
 
@@ -13,24 +14,28 @@ export interface NarrationPreferences {
 
 export interface Preferences {
   narration: NarrationPreferences;
+  finishMode: PublishMode;
   replaySpeed: number;
   showLayers: boolean;
 }
 
 export const STORAGE_KEYS: Record<keyof Preferences, string> = {
   narration: "wf.tts",
+  finishMode: "wf.finish",
   replaySpeed: "wf.speed",
   showLayers: "wf.layers",
 };
 
 const DEFAULTS: Preferences = {
   narration: { provider: "kokoro", muted: false, speed: 1.05, voices: {} },
+  finishMode: "pr",
   replaySpeed: 1,
   showLayers: false,
 };
 
 let current: Preferences = {
   narration: { ...DEFAULTS.narration, ...readJson(STORAGE_KEYS.narration, {}) },
+  finishMode: readJson(STORAGE_KEYS.finishMode, DEFAULTS.finishMode),
   replaySpeed: Number(readJson(STORAGE_KEYS.replaySpeed, DEFAULTS.replaySpeed)) || DEFAULTS.replaySpeed,
   showLayers: Boolean(readJson(STORAGE_KEYS.showLayers, DEFAULTS.showLayers)),
 };
