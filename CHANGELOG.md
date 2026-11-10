@@ -4,6 +4,8 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-10
+
 ### Added
 
 - Ships as a Claude Code plugin: `claude plugin marketplace add Jamesmoreno21/claude-workflow`, then `claude plugin install workflow@jamesmoreno21`. The command is now `/workflow:start`.
@@ -43,5 +45,6 @@ First release.
 - Security: same-origin and host checks, sanitized Markdown, Content-Security-Policy, repo-confined file paths, owner-only memory files.
 - Tests (Vitest and Playwright), ESLint and Prettier, and CI for lint, typecheck, tests and e2e.
 
-[Unreleased]: https://github.com/Jamesmoreno21/claude-workflow/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/Jamesmoreno21/claude-workflow/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Jamesmoreno21/claude-workflow/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Jamesmoreno21/claude-workflow/releases/tag/v0.1.0
