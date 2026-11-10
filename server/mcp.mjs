@@ -44043,7 +44043,9 @@ var Store = class _Store {
       summary: null,
       findings: [],
       history: null,
+      publishMode: null,
       outcome: null,
+      reviewers: [],
       chat: [],
       claudeWaiting: false,
       waitCount: 0,
@@ -44110,6 +44112,16 @@ var Store = class _Store {
         case "file_edited":
           needsClaude = false;
           break;
+        case "start_review":
+          s.phase = "reviewing";
+          s.reviewers = [];
+          break;
+        case "finding_fixed_manually": {
+          const f = finding2(event.id);
+          if (f) f.status = "fixed";
+          needsClaude = !s.findings.some(isUnresolved);
+          break;
+        }
         case "end_workflow":
           s.phase = "ended";
           break;
@@ -44148,6 +44160,7 @@ var Store = class _Store {
           needsClaude = Boolean(event.text);
           break;
         case "publish":
+          s.publishMode = event.mode;
           if (s.history) {
             s.history.reviewers = event.reviewers;
             s.history.prs = event.prs;
@@ -44295,7 +44308,18 @@ var Workflow = class {
     });
     return this.run.waitForUser();
   }
-  /** Shows the fix for a finding (what changed since Fix was pressed) and waits. */
+  /** Reports the pre-review agents' progress on the reviewing screen. */
+  reviewers(reviewers) {
+    this.run.update((s) => {
+      s.phase = s.phase === "code_ready" ? "reviewing" : s.phase;
+      s.reviewers = reviewers;
+    });
+    return this.run.drain();
+  }
+  /**
+   * Shows the fix for a finding (what changed since Fix was pressed). Doesn't
+   * wait: the user may have queued more fixes to work on.
+   */
   fixReady(id) {
     this.run.update((s) => {
       const finding2 = s.findings.find((f) => f.id === id);
@@ -44305,7 +44329,7 @@ var Workflow = class {
       finding2.status = "fixing";
       this.refreshFile(s, finding2.repo, finding2.path);
     });
-    return this.run.waitForUser();
+    return this.run.drain();
   }
   proposeHistory(history) {
     this.run.update((s) => {
@@ -44385,10 +44409,11 @@ var NEXT_STEP = {
   answers: "If every question is answered, move on (technical questions, then the plan).",
   plan_approved: "Plan approved. Start coding: workflow_begin_file for the first file.",
   file_feedback: "Rework that file, then call workflow_file_ready again.",
-  file_approved: "Move to the next file in the plan (or workflow_code_ready if all are done).",
-  start_review: "Launch the reviewer subagents, then call workflow_review with their findings.",
-  finding_fix: "Fix that finding in the code, then call workflow_fix_ready with its id.",
+  file_approved: "Move to the next file in the plan. Don't run tests, builds or agents between files: once every file is approved, run the checks once (workflow_status with phase 'checking'), then workflow_code_ready with the results.",
+  start_review: "Call workflow_reviewers with every reviewer agent as 'running', launch them, update each one's status and finding count as it finishes, then call workflow_review with the merged findings.",
+  finding_fix: "Fix that finding, then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
   fix_rejected: "Rework the fix (see the note), then call workflow_fix_ready again.",
+  finding_fixed_manually: "The user fixed this finding themselves in the editor. Re-read the file before touching it again; nothing else to do unless it's still wrong.",
   history_changed: "Revise the proposal and call workflow_propose_history again.",
   history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
   publish: "Create the branches and commits exactly as in this event's `prs` (it includes the user's edits). Then, by `mode`: 'local' stop there (don't push); 'push' push the branches; 'pr' push and open the PRs. Then call workflow_published with the mode.",
@@ -44467,6 +44492,14 @@ var outcome = {
   branches: external_exports.array(external_exports.object({ repo: external_exports.string(), branch: external_exports.string(), commits: external_exports.number().int() })),
   links: external_exports.array(external_exports.object({ repo: external_exports.string(), title: external_exports.string(), url: external_exports.string() })).default([]).describe("PR URLs (mode 'pr' only)")
 };
+var reviewer = external_exports.object({
+  id: external_exports.string(),
+  name: external_exports.string().describe("e.g. 'Correctness', 'Security'"),
+  focus: external_exports.string().describe("What it checks, one line"),
+  scope: external_exports.string().optional().describe("What it reads, e.g. 'api: src/auth/*'"),
+  status: external_exports.enum(["queued", "running", "done", "failed"]),
+  findings: external_exports.number().int().optional().describe("How many findings it raised (when done)")
+});
 var answer = external_exports.object({ optionId: external_exports.string().optional(), text: external_exports.string().optional() });
 
 // server/src/mcp/tools.ts
@@ -44501,7 +44534,7 @@ function registerTools(mcp2, workflow) {
     "workflow_status",
     {
       description: "Update the loading screen while you research, plan or publish. Short, present tense: 'Reading the billing module\u2026'. Returns pending user events without waiting.",
-      inputSchema: { message: external_exports.string(), phase: external_exports.enum(["research", "planning", "publishing"]).optional() }
+      inputSchema: { message: external_exports.string(), phase: external_exports.enum(["research", "planning", "checking", "publishing"]).optional() }
     },
     async ({ message, phase }) => eventsResult(workflow.status(message, phase))
   );
@@ -44564,12 +44597,20 @@ function registerTools(mcp2, workflow) {
     async ({ findings }) => eventsResult(await workflow.review(findings), withUnresolved())
   );
   mcp2.registerTool(
+    "workflow_reviewers",
+    {
+      description: "Show the pre-review agents on the reviewing screen: one entry per reviewer with what it checks, what it reads, its status and (when done) its finding count. Call it when you launch them and again as each one finishes. Returns pending events without waiting.",
+      inputSchema: { reviewers: external_exports.array(reviewer).min(1) }
+    },
+    async ({ reviewers }) => eventsResult(workflow.reviewers(reviewers))
+  );
+  mcp2.registerTool(
     "workflow_fix_ready",
     {
-      description: "A fix for a finding is in the working tree. Shows the diff under the finding and waits for approval.",
+      description: "A fix for a finding is in the working tree; the user sees it as a diff to approve. Returns at once with any pending events (e.g. more fixes the user queued), so keep fixing; call workflow_wait when nothing is left.",
       inputSchema: { id: external_exports.number().int() }
     },
-    async ({ id }) => eventsResult(await workflow.fixReady(id), withUnresolved())
+    async ({ id }) => eventsResult(workflow.fixReady(id), withUnresolved())
   );
   mcp2.registerTool(
     "workflow_propose_history",

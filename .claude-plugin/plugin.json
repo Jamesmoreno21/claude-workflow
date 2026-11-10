@@ -1,7 +1,7 @@
 {
   "name": "workflow",
   "displayName": "Workflow cockpit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Run a coding task through a local cockpit UI: validate decisions, narrated plan, file-by-file coding, pre-review, and commits or PRs, with voice.",
   "author": {
     "name": "Jamesmoreno21",
