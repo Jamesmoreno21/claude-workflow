@@ -15,6 +15,7 @@ import { HistoryScreen } from "./screens/HistoryScreen";
 import { LoadingScreen } from "./screens/LoadingScreen";
 import { PlanScreen } from "./screens/PlanScreen";
 import { PublishedScreen } from "./screens/PublishedScreen";
+import { ReviewingScreen } from "./screens/ReviewingScreen";
 import { ValidationScreen } from "./screens/ValidationScreen";
 import { speak } from "./services/tts";
 
@@ -24,6 +25,8 @@ const WorkspaceScreen = lazy(() => import("./screens/workspace/WorkspaceScreen")
 const SCREENS = {
   research: LoadingScreen,
   planning: LoadingScreen,
+  checking: LoadingScreen,
+  reviewing: ReviewingScreen,
   publishing: LoadingScreen,
   validation: ValidationScreen,
   plan: PlanScreen,

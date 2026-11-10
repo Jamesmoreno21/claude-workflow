@@ -84,12 +84,13 @@ test("a task goes from validation to published PRs", async ({ page }) => {
     await page.getByRole("button", { name: /Approve file/ }).click();
   });
 
-  await test.step("pre-review inside the editor: fix one finding, dismiss the rest", async () => {
+  await test.step("pre-review inside the editor: fix one, fix one by hand, dismiss one", async () => {
     await page.getByRole("button", { name: "Start pre-review" }).click();
+    await expect(page.getByText(/Reviewers at work/)).toBeVisible();
     await expect(page.locator(".finding-item")).toHaveCount(3);
     await expect(finding(page, 1)).toBeVisible();
 
-    await finding(page, 1).locator("button", { hasText: "Fix" }).click();
+    await finding(page, 1).locator("button", { hasText: /^Fix$/ }).click();
     await expect(page.locator(".fix-banner")).toContainText("Proposed fix for #1");
     await page.locator(".fix-banner").getByRole("button", { name: "Approve fix" }).click();
     await expect(finding(page, 1).getByText("✓ Fixed")).toBeVisible();
@@ -100,10 +101,11 @@ test("a task goes from validation to published PRs", async ({ page }) => {
     await expect(page.locator(".file-tree .tree-file", { hasText: "README.md" })).toBeVisible();
     await page.getByRole("button", { name: /^Findings/ }).click();
 
-    for (const id of [2, 3]) {
-      await page.locator(".finding-item", { hasText: id === 2 ? "req.ip" : "Magic numbers" }).click();
-      await finding(page, id).locator("button", { hasText: "Dismiss" }).click();
-    }
+    await page.locator(".finding-item", { hasText: "req.ip" }).click();
+    await finding(page, 2).locator("button", { hasText: "Fixed manually" }).click();
+    await expect(finding(page, 2).getByText("✓ Fixed")).toBeVisible();
+    await page.locator(".finding-item", { hasText: "Magic numbers" }).click();
+    await finding(page, 3).locator("button", { hasText: "Dismiss" }).click();
   });
 
   await test.step("commit history: edit the PR, choose how to finish, pick a reviewer", async () => {

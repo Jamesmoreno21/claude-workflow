@@ -1,4 +1,4 @@
-import type { Phase } from "../../../shared/protocol";
+import type { Phase, PublishMode } from "../../../shared/protocol";
 
 /** Phases that show the chat sidebar. */
 export const PHASES_WITH_CHAT: Phase[] = ["validation", "plan", "coding", "code_ready", "review", "history"];
@@ -10,7 +10,9 @@ export const STEP_OF: Record<Phase, Phase> = {
   planning: "plan",
   plan: "plan",
   coding: "coding",
+  checking: "coding",
   code_ready: "coding",
+  reviewing: "review",
   review: "review",
   history: "history",
   publishing: "history",
@@ -21,5 +23,12 @@ export const STEP_OF: Record<Phase, Phase> = {
 export const LOADING_TITLES: Partial<Record<Phase, string>> = {
   research: "Understanding the task",
   planning: "Building the plan",
-  publishing: "Publishing to GitHub",
+  checking: "Running checks on the changes",
+};
+
+/** The publishing screen says what will actually happen for the chosen finish. */
+export const PUBLISHING_TITLES: Record<PublishMode, string> = {
+  local: "Creating the commits",
+  push: "Committing and pushing the branches",
+  pr: "Pushing and opening the pull requests",
 };

@@ -10,15 +10,23 @@ export const sortBySeverity = (findings: Finding[]) =>
   [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.id - b.id);
 
 function FindingActions({ finding }: { finding: Finding }) {
-  const { state, send, setFocus } = useApp();
+  const { send, setFocus } = useApp();
   const ask = () => {
     setFocus({ about: `finding:${finding.id}`, label: findingLabel(finding) });
     document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
   };
   return (
     <div className="fb-actions">
-      <button className="primary" disabled={!state.claudeWaiting} onClick={() => send({ type: "finding_fix", id: finding.id })}>
+      {/* Fixes queue up: Claude works through them in order. */}
+      <button className="primary" onClick={() => send({ type: "finding_fix", id: finding.id })}>
         Fix
+      </button>
+      <button
+        className="ghost"
+        onClick={() => send({ type: "finding_fixed_manually", id: finding.id })}
+        title="You fixed it yourself in the editor"
+      >
+        Fixed manually
       </button>
       <button className="ghost" onClick={() => send({ type: "finding_dismiss", id: finding.id })}>
         Dismiss
@@ -51,7 +59,9 @@ export function FindingBox({ finding, selected, onSelect }: { finding: Finding; 
           <span className="spinner" /> Claude is fixing this…
         </div>
       )}
-      {finding.status === "fixing" && finding.fix?.ready && <div className="fb-fixing">The proposed fix is shown in the editor above.</div>}
+      {finding.status === "fixing" && finding.fix?.ready && (
+        <div className="fb-fixing">The proposed fix is in the editor: approve it above, or adjust it and save.</div>
+      )}
       {finding.status === "fixed" && <div className="fb-done">✓ Fixed</div>}
       {finding.status === "dismissed" && <div className="fb-done muted">Dismissed</div>}
     </div>
@@ -62,12 +72,22 @@ export function FindingBox({ finding, selected, onSelect }: { finding: Finding; 
 export function FixBanner({ finding }: { finding: Finding }) {
   const { send } = useApp();
   const [note, setNote] = useState("");
+  const redo = () => {
+    if (!note.trim()) return;
+    send({ type: "fix_rejected", id: finding.id, text: note.trim() });
+    setNote("");
+  };
   return (
     <div className="fix-banner">
       <span className="fb-fix-title">Proposed fix for #{finding.id}</span>
       <span className="why-text">{finding.title}</span>
-      <input value={note} placeholder="Or say what to change…" onChange={(e) => setNote(e.target.value)} />
-      <button className="ghost" disabled={!note.trim()} onClick={() => send({ type: "fix_rejected", id: finding.id, text: note.trim() })}>
+      <input
+        value={note}
+        placeholder="Say what to change, or edit it below and save…"
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => e.key === "Enter" && redo()}
+      />
+      <button className="ghost" disabled={!note.trim()} onClick={redo}>
         Redo
       </button>
       <button className="primary" onClick={() => send({ type: "fix_approved", id: finding.id })}>

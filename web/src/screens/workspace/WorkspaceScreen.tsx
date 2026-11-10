@@ -68,21 +68,45 @@ function TaskFiles({
   );
 }
 
+/** Findings grouped by repository, then file, so multi-repo reviews stay readable. */
 function FindingsList({ findings, selected, onSelect }: { findings: Finding[]; selected?: Finding; onSelect(f: Finding): void }) {
+  const repos = [...new Set(findings.map((f) => f.repo))];
   return (
     <>
-      {findings.map((f) => (
-        <button key={f.id} className={`finding-item ${f.status} ${f === selected ? "on" : ""}`} onClick={() => onSelect(f)}>
-          <span className={`num sev-${f.severity}`}>{f.id}</span>
-          <div>
-            <b>{f.title}</b>
-            <small>
-              {fileName(f.path)}:{f.line} · {f.category}
-            </small>
+      {repos.map((repo) => {
+        const inRepo = findings.filter((f) => f.repo === repo);
+        const files = [...new Set(inRepo.map((f) => f.path))];
+        return (
+          <div key={repo} className="findings-repo">
+            <div className="tree-repo">
+              {repo} <span className="muted">· {inRepo.filter(isUnresolved).length} open</span>
+            </div>
+            {files.map((path) => (
+              <div key={path}>
+                <div className="findings-file" title={path}>
+                  {path}
+                </div>
+                {inRepo
+                  .filter((f) => f.path === path)
+                  .map((f) => (
+                    <button key={f.id} className={`finding-item ${f.status} ${f === selected ? "on" : ""}`} onClick={() => onSelect(f)}>
+                      <span className={`num sev-${f.severity}`}>{f.id}</span>
+                      <div>
+                        <b>{f.title}</b>
+                        <small>
+                          line {f.line} · {f.category}
+                        </small>
+                      </div>
+                      <span className={`st ${f.fix?.ready && f.status === "fixing" ? "fix-ready" : ""}`}>
+                        {f.fix?.ready && f.status === "fixing" ? "●" : FINDING_STATUS_ICON[f.status]}
+                      </span>
+                    </button>
+                  ))}
+              </div>
+            ))}
           </div>
-          <span className="st">{FINDING_STATUS_ICON[f.status]}</span>
-        </button>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -129,7 +153,8 @@ export function WorkspaceScreen() {
   const fixShown = review && finding?.status === "fixing" && finding.fix?.ready && sameFile(finding, doc) ? finding : undefined;
 
   let view: { original: string; modified: string; readOnly: boolean } | null = null;
-  if (fixShown) view = { original: fixShown.fix!.before, modified: fixShown.fix!.after, readOnly: true };
+  // A proposed fix: what changed since Fix was pressed, editable so it can be finished by hand.
+  if (fixShown) view = { original: fixShown.fix!.before, modified: after ?? fixShown.fix!.after, readOnly: repo?.role !== "change" };
   else if (hasTaskDiff)
     view = {
       original: before ?? "",
@@ -331,6 +356,7 @@ export function WorkspaceScreen() {
               sideBySide={sideBySide}
               zones={zones}
               revealLine={typed?.cursorLine ?? (review ? finding?.line : undefined)}
+              foldUnchanged={!review}
               onDirtyChange={(isDirty) => setDirtyDoc(isDirty ? docKey : null)}
               onSave={save}
               onAsk={askAboutSelection}

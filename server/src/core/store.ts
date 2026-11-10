@@ -37,7 +37,9 @@ export class Store {
       summary: null,
       findings: [],
       history: null,
+      publishMode: null,
       outcome: null,
+      reviewers: [],
       chat: [],
       claudeWaiting: false,
       waitCount: 0,
@@ -110,6 +112,18 @@ export class Store {
           // Claude learns about it with the next event that needs it.
           needsClaude = false;
           break;
+        case "start_review":
+          // Reviewing starts now: the start button can't be pressed twice while agents work.
+          s.phase = "reviewing";
+          s.reviewers = [];
+          break;
+        case "finding_fixed_manually": {
+          const f = finding(event.id);
+          if (f) f.status = "fixed";
+          // Claude hears about it with the next event, or when the review clears.
+          needsClaude = !s.findings.some(isUnresolved);
+          break;
+        }
         case "end_workflow":
           s.phase = "ended";
           break;
@@ -150,6 +164,7 @@ export class Store {
           needsClaude = Boolean(event.text);
           break;
         case "publish":
+          s.publishMode = event.mode;
           if (s.history) {
             s.history.reviewers = event.reviewers;
             s.history.prs = event.prs;

@@ -4,6 +4,24 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Added
+
+- Pre-review shows each reviewer agent: what it checks, which files, and its progress.
+- Queue fixes for several findings at once; Claude works through them while you keep reviewing.
+- "Fixed manually": edit the code yourself in the review editor and mark the finding fixed.
+- Findings are grouped by repository, then file.
+
+### Changed
+
+- Checks (tests, builds, linters) run once after every file is approved, not between files; failures become extra changes.
+- Review shows whole files, so every finding's line is visible without expanding.
+- The finishing screen names what is happening: "Creating the commits" when only committing locally, no GitHub mention.
+
+### Fixed
+
+- The pre-review loader no longer disappears while the reviewer agents are still working.
+- Pressing Enter in a proposed fix's box sends the adjustment.
+
 ## [0.2.0] - 2026-11-10
 
 ### Added

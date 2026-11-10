@@ -132,18 +132,29 @@ For each file, in the order of the plan:
    `workflow_file_ready` again.
 
 Don't start the next file until the current one is approved. A
-`file_feedback` on an already approved file reopens it. Run the relevant tests
-when a logical unit is complete, and mention the results in a short
-`workflow_reply`.
+`file_feedback` on an already approved file reopens it.
 
-When every file is approved, call `workflow_code_ready` with a markdown
-summary.
+**While files are being written and approved, only write code and wait.** Don't
+run tests, builds, linters or agents between files. The user is reading along,
+and half-finished changes fail anyway.
+
+When every file is approved, run the checks **once**: the relevant tests, type
+checks, linters and builds for each change repo. Report progress with
+`workflow_status(message, phase: "checking")`, for example "Running the unit
+tests…". If something fails, fix it as extra files through the same loop
+(`workflow_begin_file` → edit → `workflow_file_ready`), then run the checks
+again. Finally call `workflow_code_ready` with a markdown summary that includes
+the check results.
 
 ## 6. Pre-review
 
-On `start_review`, call `workflow_status("Reviewers are reading the changes…")`,
-then launch **parallel review subagents** (Agent tool) over the full diff of
-every change repo:
+On `start_review` the cockpit shows a reviewing screen with one card per
+agent. Call `workflow_reviewers` with every reviewer set to `running` (name,
+what it checks, which repos and files it reads), then launch them as
+**parallel review subagents** (Agent tool) over the full diff of every change
+repo. Call `workflow_reviewers` again as each one finishes (`done` and its
+finding count, or `failed`). Don't call `workflow_wait` while they run. The
+reviewers:
 
 - **correctness**: logic bugs, edge cases from the plan that are missing,
   error handling.
@@ -159,9 +170,14 @@ concrete failure scenario, then call `workflow_review(findings)`. The findings
 appear inside the code editor under their `line` (1-based, in the current
 file), so get the line right. Then:
 
-- `finding_fix`: fix it, then `workflow_fix_ready(id)`.
+- `finding_fix`: fix it, then `workflow_fix_ready(id)`. The user can queue
+  several fixes; `workflow_fix_ready` returns at once with anything queued
+  meanwhile, so work through them all before calling `workflow_wait`.
 - `fix_rejected`: rework it using the note, then `workflow_fix_ready(id)`
-  again.
+  again. The user may also have edited the fix in the editor
+  (`file_edited`): build on their version.
+- `finding_fixed_manually`: the user fixed it themselves. Re-read the file
+  before touching it again.
 - A `chat` event about `finding:N`: answer it. If the user tells you to fix or
   dismiss it, do that.
 - When no finding is open, go to step 7.

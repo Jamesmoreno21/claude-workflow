@@ -10,6 +10,7 @@ import {
   type Outcome,
   type Question,
   type RepoRef,
+  type Reviewer,
   type TaskContext,
   type UserEvent,
   type WorkflowState,
@@ -21,7 +22,7 @@ import { loadMemory, rememberContext, rememberReviewers } from "../services/memo
 import { clearRuntime, publishRuntime } from "../services/runtime.js";
 import { Store } from "./store.js";
 
-export type LoadingPhase = Extract<Phase, "research" | "planning" | "publishing">;
+export type LoadingPhase = Extract<Phase, "research" | "planning" | "checking" | "publishing">;
 export type NewFinding = Omit<Finding, "id" | "status">;
 export type ProposedHistory = Omit<History, "reviewers"> & { reviewers?: string[] };
 
@@ -169,7 +170,19 @@ export class Workflow {
     return this.run.waitForUser();
   }
 
-  /** Shows the fix for a finding (what changed since Fix was pressed) and waits. */
+  /** Reports the pre-review agents' progress on the reviewing screen. */
+  reviewers(reviewers: Reviewer[]) {
+    this.run.update((s) => {
+      s.phase = s.phase === "code_ready" ? "reviewing" : s.phase;
+      s.reviewers = reviewers;
+    });
+    return this.run.drain();
+  }
+
+  /**
+   * Shows the fix for a finding (what changed since Fix was pressed). Doesn't
+   * wait: the user may have queued more fixes to work on.
+   */
   fixReady(id: number) {
     this.run.update((s) => {
       const finding = s.findings.find((f) => f.id === id);
@@ -179,7 +192,7 @@ export class Workflow {
       finding.status = "fixing";
       this.refreshFile(s, finding.repo, finding.path);
     });
-    return this.run.waitForUser();
+    return this.run.drain();
   }
 
   proposeHistory(history: ProposedHistory) {

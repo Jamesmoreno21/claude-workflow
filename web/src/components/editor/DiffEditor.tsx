@@ -25,6 +25,8 @@ export interface DiffEditorProps {
   modified: string;
   readOnly: boolean;
   sideBySide: boolean;
+  /** Collapse long unchanged stretches (off in review, so every finding's line stays visible). */
+  foldUnchanged?: boolean;
   zones?: Zone[];
   /** Keeps this line in view (the replay's typing cursor, a selected finding). */
   revealLine?: number;
@@ -130,10 +132,11 @@ export function DiffEditor(props: DiffEditorProps) {
     applyText(models.modified, modified);
   }, [editor, original, modified, dirty]);
 
+  const foldUnchanged = props.foldUnchanged ?? true;
   useEffect(() => {
-    editor?.updateOptions({ renderSideBySide: sideBySide });
+    editor?.updateOptions({ renderSideBySide: sideBySide, hideUnchangedRegions: { enabled: foldUnchanged } });
     editor?.getModifiedEditor().updateOptions({ readOnly });
-  }, [editor, sideBySide, readOnly]);
+  }, [editor, sideBySide, readOnly, foldUnchanged]);
 
   useEffect(() => {
     if (editor && revealLine) editor.getModifiedEditor().revealLineInCenterIfOutsideViewport(revealLine);

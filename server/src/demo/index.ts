@@ -1,7 +1,7 @@
 // Scripted stand-in for Claude, so the cockpit can be designed and tested
 // without a real session: `npm run demo`, then open the printed URL.
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { UserEvent } from "../../../shared/protocol.js";
@@ -44,20 +44,29 @@ async function until(first: Promise<UserEvent[]>, done: (event: UserEvent) => bo
   }
 }
 
+/** Reviewer agents report one by one, then the user fixes, dismisses or asks about each finding. */
 async function runReview() {
-  let next = workflow.review(demo.FINDINGS);
+  workflow.reviewers(demo.REVIEWERS.map((r) => ({ ...r, findings: undefined })));
+  const reported = [...demo.REVIEWERS];
+  for (let i = 0; i < reported.length; i++) {
+    await pause(1200);
+    workflow.reviewers(reported.map((r, j) => (j <= i ? { ...r, status: "done" } : { ...r, findings: undefined })));
+  }
+
+  const queue: UserEvent[] = await workflow.review(demo.FINDINGS);
   while (workflow.unresolvedFindingIds().length) {
-    let fixShown: Promise<UserEvent[]> | null = null;
-    for (const event of await next) {
-      if (event.type === "chat") workflow.reply("(demo) A real run explains the finding here.", event.about);
-      if (event.type === "finding_fix" || event.type === "fix_rejected") {
-        await pause(1200);
-        const fix = demo.FIXES[event.id];
-        writeFile(fix.path, fix.content);
-        fixShown = workflow.fixReady(event.id);
-      }
+    const event = queue.shift();
+    if (!event) {
+      queue.push(...(await workflow.wait()));
+      continue;
     }
-    next = fixShown ?? workflow.wait();
+    if (event.type === "chat") workflow.reply("(demo) A real run explains the finding here.", event.about);
+    if (event.type === "finding_fix" || event.type === "fix_rejected") {
+      await pause(1200);
+      const fix = demo.FIXES[event.id];
+      writeFile(fix.path, fix.apply(readFileSync(join(repoPath, fix.path), "utf8")));
+      queue.push(...workflow.fixReady(event.id)); // returns at once with anything queued meanwhile
+    }
   }
 }
 
@@ -84,9 +93,11 @@ for (const { content, ...file } of demo.FILES) {
   await until(workflow.fileReady(file.repo, file.path), (e) => e.type === "file_approved" && e.path === file.path);
 }
 
+for (const step of demo.CHECK_STEPS) {
+  workflow.status(step, "checking");
+  await pause(900);
+}
 await until(workflow.codeReady(demo.CODE_SUMMARY), (e) => e.type === "start_review");
-workflow.status("Reviewers are reading the changes…");
-await pause(1500);
 await runReview();
 
 const publish = await until(workflow.proposeHistory(demo.HISTORY), (e) => e.type === "publish");

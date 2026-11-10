@@ -1,4 +1,4 @@
-import type { Outcome, Plan, PublishMode, Question, TaskContext } from "../../../shared/protocol.js";
+import type { Outcome, Plan, PublishMode, Question, Reviewer, TaskContext } from "../../../shared/protocol.js";
 import type { FileStart, NewFinding, ProposedHistory } from "../core/workflow.js";
 
 // A small, realistic task ("lock accounts after failed logins") used by the
@@ -285,18 +285,60 @@ export const FINDINGS: NewFinding[] = [
   },
 ];
 
-/** The file and its contents after Claude "fixes" a finding, by finding id. */
-export const FIXES: Record<number, { path: string; content: string }> = {
+/** How Claude "fixes" each finding: an edit applied to the file as it is now, so fixes stack. */
+export const FIXES: Record<number, { path: string; apply(content: string): string }> = {
   1: {
     path: "src/auth/limiter.ts",
-    content: LIMITER.replace(
-      "export async function recordFailure(email: string, ip: string) {\n  const e",
-      "export async function recordFailure(email: string, ip: string) {\n  await redis.expire(`fail:e:${norm(email)}`, 15 * 60);\n  const e",
-    ),
+    apply: (content) =>
+      content.replace(
+        "export async function recordFailure(email: string, ip: string) {\n",
+        "export async function recordFailure(email: string, ip: string) {\n  await redis.expire(`fail:e:${norm(email)}`, 15 * 60);\n",
+      ),
   },
-  2: { path: "src/auth/login.ts", content: LOGIN.replaceAll("req.ip", 'req.ip ?? "unknown"') },
-  3: { path: "src/auth/limiter.ts", content: LIMITER.replace("const MAX_PER_EMAIL = 5;", "const MAX_PER_EMAIL = config.maxPerEmail;") },
+  2: { path: "src/auth/login.ts", apply: (content) => content.replaceAll("req.ip)", 'req.ip ?? "unknown")') },
+  3: {
+    path: "src/auth/limiter.ts",
+    apply: (content) => content.replace("const MAX_PER_EMAIL = 5;", "const MAX_PER_EMAIL = config.maxPerEmail;"),
+  },
 };
+
+/** The pre-review agents and how many findings each raises. */
+export const REVIEWERS: Reviewer[] = [
+  {
+    id: "correctness",
+    name: "Correctness",
+    focus: "Logic bugs, missing edge cases, error handling",
+    scope: "api: src/auth/*",
+    status: "running",
+    findings: 1,
+  },
+  {
+    id: "security",
+    name: "Security",
+    focus: "Injection, auth gaps, secrets, unsafe input",
+    scope: "api: src/auth/*",
+    status: "running",
+    findings: 1,
+  },
+  {
+    id: "tests",
+    name: "Constraints & tests",
+    focus: "Agreed decisions met, tests missing or weak",
+    scope: "api: src/auth/*, tests",
+    status: "running",
+    findings: 0,
+  },
+  {
+    id: "style",
+    name: "Style",
+    focus: "Style guide and repo conventions (CLAUDE.md)",
+    scope: "api: src/auth/*",
+    status: "running",
+    findings: 1,
+  },
+];
+
+export const CHECK_STEPS = ["Running the unit tests…", "Type-checking…", "Linting…"];
 
 export const HISTORY: ProposedHistory = {
   assignee: "Jamesmoreno21",

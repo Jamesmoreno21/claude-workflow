@@ -4,7 +4,7 @@ import { COMMIT_LINES_TARGET, PR_LINES_MAX, PR_LINES_TARGET } from "../../../sha
 import type { Workflow } from "../core/workflow.js";
 import { loadMemory } from "../services/memory.js";
 import { eventsResult, text } from "./results.js";
-import { answer, finding, outcome, plannedPr, pr, question, repo, slide } from "./schemas.js";
+import { answer, finding, outcome, plannedPr, pr, question, repo, reviewer, slide } from "./schemas.js";
 
 /** Registers every workflow_* tool. Descriptions are written for Claude. */
 export function registerTools(mcp: McpServer, workflow: Workflow) {
@@ -44,7 +44,7 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
     {
       description:
         "Update the loading screen while you research, plan or publish. Short, present tense: 'Reading the billing module…'. Returns pending user events without waiting.",
-      inputSchema: { message: z.string(), phase: z.enum(["research", "planning", "publishing"]).optional() },
+      inputSchema: { message: z.string(), phase: z.enum(["research", "planning", "checking", "publishing"]).optional() },
     },
     async ({ message, phase }) => eventsResult(workflow.status(message, phase)),
   );
@@ -121,12 +121,23 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
   );
 
   mcp.registerTool(
+    "workflow_reviewers",
+    {
+      description:
+        "Show the pre-review agents on the reviewing screen: one entry per reviewer with what it checks, what it reads, its status and (when done) its finding count. Call it when you launch them and again as each one finishes. Returns pending events without waiting.",
+      inputSchema: { reviewers: z.array(reviewer).min(1) },
+    },
+    async ({ reviewers }) => eventsResult(workflow.reviewers(reviewers)),
+  );
+
+  mcp.registerTool(
     "workflow_fix_ready",
     {
-      description: "A fix for a finding is in the working tree. Shows the diff under the finding and waits for approval.",
+      description:
+        "A fix for a finding is in the working tree; the user sees it as a diff to approve. Returns at once with any pending events (e.g. more fixes the user queued), so keep fixing; call workflow_wait when nothing is left.",
       inputSchema: { id: z.number().int() },
     },
-    async ({ id }) => eventsResult(await workflow.fixReady(id), withUnresolved()),
+    async ({ id }) => eventsResult(workflow.fixReady(id), withUnresolved()),
   );
 
   mcp.registerTool(

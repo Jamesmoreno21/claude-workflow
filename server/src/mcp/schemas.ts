@@ -81,4 +81,13 @@ export const outcome = {
     .describe("PR URLs (mode 'pr' only)"),
 };
 
+export const reviewer = z.object({
+  id: z.string(),
+  name: z.string().describe("e.g. 'Correctness', 'Security'"),
+  focus: z.string().describe("What it checks, one line"),
+  scope: z.string().optional().describe("What it reads, e.g. 'api: src/auth/*'"),
+  status: z.enum(["queued", "running", "done", "failed"]),
+  findings: z.number().int().optional().describe("How many findings it raised (when done)"),
+});
+
 export const answer = z.object({ optionId: z.string().optional(), text: z.string().optional() });

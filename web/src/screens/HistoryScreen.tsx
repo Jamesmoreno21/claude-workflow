@@ -4,6 +4,7 @@ import { useApp } from "../app/AppContext";
 import { Markdown } from "../components/Markdown";
 import { usePreference } from "../config/settings";
 import { FINISH_MODE } from "../constants/labels";
+import { PUBLISHING_TITLES } from "../constants/phases";
 import { REVIEWER_SUGGESTIONS } from "../constants/ui";
 import { commitSizeClass, prLines, prSizeClass } from "../lib/size";
 
@@ -244,7 +245,7 @@ export function HistoryScreen() {
           className="primary big"
           disabled={!state.claudeWaiting}
           onClick={() =>
-            send({ type: "publish", mode: finishMode, reviewers, prs: history.prs }, { handoff: "Claude is creating the commits…" })
+            send({ type: "publish", mode: finishMode, reviewers, prs: history.prs }, { handoff: `${PUBLISHING_TITLES[finishMode]}…` })
           }
         >
           {FINISH_MODE[finishMode].action(history.prs.length)}

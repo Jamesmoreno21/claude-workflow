@@ -6,10 +6,15 @@ const NEXT_STEP: Partial<Record<UserEvent["type"], string>> = {
   answers: "If every question is answered, move on (technical questions, then the plan).",
   plan_approved: "Plan approved. Start coding: workflow_begin_file for the first file.",
   file_feedback: "Rework that file, then call workflow_file_ready again.",
-  file_approved: "Move to the next file in the plan (or workflow_code_ready if all are done).",
-  start_review: "Launch the reviewer subagents, then call workflow_review with their findings.",
-  finding_fix: "Fix that finding in the code, then call workflow_fix_ready with its id.",
+  file_approved:
+    "Move to the next file in the plan. Don't run tests, builds or agents between files: once every file is approved, run the checks once (workflow_status with phase 'checking'), then workflow_code_ready with the results.",
+  start_review:
+    "Call workflow_reviewers with every reviewer agent as 'running', launch them, update each one's status and finding count as it finishes, then call workflow_review with the merged findings.",
+  finding_fix:
+    "Fix that finding, then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
   fix_rejected: "Rework the fix (see the note), then call workflow_fix_ready again.",
+  finding_fixed_manually:
+    "The user fixed this finding themselves in the editor. Re-read the file before touching it again; nothing else to do unless it's still wrong.",
   history_changed: "Revise the proposal and call workflow_propose_history again.",
   history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
   publish:

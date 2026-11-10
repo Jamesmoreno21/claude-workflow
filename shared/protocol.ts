@@ -3,7 +3,19 @@
 // sends `UserEvent`s back, which Claude receives from its waiting tools.
 
 export type Phase =
-  "research" | "validation" | "planning" | "plan" | "coding" | "code_ready" | "review" | "history" | "publishing" | "published" | "ended";
+  | "research"
+  | "validation"
+  | "planning"
+  | "plan"
+  | "coding"
+  | "checking"
+  | "code_ready"
+  | "reviewing"
+  | "review"
+  | "history"
+  | "publishing"
+  | "published"
+  | "ended";
 
 export const PHASES: { id: Phase; label: string }[] = [
   { id: "validation", label: "Validation" },
@@ -149,6 +161,18 @@ export interface Finding {
   fix?: { before: string; after: string; ready: boolean };
 }
 
+/** One reviewer agent in the pre-review, as Claude reports it. */
+export interface Reviewer {
+  id: string;
+  name: string;
+  /** What it checks, e.g. "Security: injection, auth, secrets". */
+  focus: string;
+  /** What it reads, e.g. "api: src/auth/*, web: src/login/*". */
+  scope?: string;
+  status: "queued" | "running" | "done" | "failed";
+  findings?: number;
+}
+
 /** Open or being fixed: still needs the user before the review is clear. */
 export const isUnresolved = (f: Finding) => f.status === "open" || f.status === "fixing";
 
@@ -243,7 +267,11 @@ export interface WorkflowState {
   summary: CodeSummary | null;
   findings: Finding[];
   history: History | null;
+  /** How the user chose to finish (set when they press the finish button). */
+  publishMode: PublishMode | null;
   outcome: Outcome | null;
+  /** The pre-review's agents and their progress. */
+  reviewers: Reviewer[];
   chat: ChatMessage[];
   /** True while Claude is blocked on the user. False = Claude is working. */
   claudeWaiting: boolean;
@@ -266,6 +294,7 @@ export type UserEvent =
   | { type: "finding_dismiss"; id: number }
   | { type: "fix_approved"; id: number }
   | { type: "fix_rejected"; id: number; text?: string }
+  | { type: "finding_fixed_manually"; id: number }
   | { type: "history_changed"; reviewers: string[]; text?: string }
   | { type: "history_edited"; prs: ProposedPR[] }
   | { type: "publish"; mode: PublishMode; reviewers: string[]; prs: ProposedPR[] }

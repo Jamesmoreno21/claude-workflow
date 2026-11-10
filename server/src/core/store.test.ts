@@ -97,3 +97,30 @@ describe("Store.reset", () => {
     expect(seen.at(-1)).toBe(s.state.id); // the UI hears about the new run
   });
 });
+
+describe("Store v0.3 review flow", () => {
+  it("enters the reviewing step as soon as the user starts the pre-review", () => {
+    const s = new Store(ctx, []);
+    s.state.phase = "code_ready";
+    s.push({ type: "start_review" });
+    expect(s.state.phase).toBe("reviewing");
+  });
+
+  it("marks a finding fixed when the user fixed it by hand, waking Claude only when that clears the review", async () => {
+    const s = new Store(ctx, []);
+    s.state.findings = [finding(1), finding(2)];
+    const waiting = s.waitForUser();
+    s.push({ type: "finding_fixed_manually", id: 1 });
+    expect(s.state.findings[0].status).toBe("fixed");
+    expect(s.state.claudeWaiting).toBe(true); // #2 still open
+    s.push({ type: "finding_dismiss", id: 2 });
+    expect((await waiting).map((e) => e.type)).toEqual(["finding_fixed_manually", "finding_dismiss"]);
+  });
+
+  it("remembers how the user chose to finish", () => {
+    const s = new Store(ctx, []);
+    s.state.history = { prs: [], reviewers: [] };
+    s.push({ type: "publish", mode: "local", reviewers: [], prs: [] });
+    expect(s.state.publishMode).toBe("local");
+  });
+});
