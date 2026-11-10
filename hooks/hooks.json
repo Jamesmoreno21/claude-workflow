@@ -1,0 +1,17 @@
+{
+  "description": "Keeps Claude listening while a workflow cockpit is open, instead of ending its turn.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/server/stop-hook.mjs"],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
