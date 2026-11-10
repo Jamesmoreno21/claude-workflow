@@ -7,9 +7,14 @@ export interface Focus {
   label?: string;
 }
 
+export interface SendOptions {
+  /** Shows a loader with this text until Claude has handled the event. */
+  handoff?: string;
+}
+
 export const AppContext = createContext<{
   state: WorkflowState;
-  send: (event: UserEvent) => void;
+  send: (event: UserEvent, options?: SendOptions) => void;
   focus: Focus;
   setFocus: (focus: Focus) => void;
 }>(null!);

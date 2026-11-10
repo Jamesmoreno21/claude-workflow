@@ -56,13 +56,23 @@ describe("History", () => {
     const input = screen.getByPlaceholderText("add reviewer…");
     fireEvent.change(input, { target: { value: "@octocat" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    fireEvent.click(screen.getByText(/Publish 1 PR/));
-    expect(send).toHaveBeenLastCalledWith({ type: "publish", reviewers: ["octocat"], prs: [pr] });
+    fireEvent.click(screen.getByText(/Open 1 PR/));
+    expect(send).toHaveBeenLastCalledWith({ type: "publish", mode: "pr", reviewers: ["octocat"], prs: [pr] }, expect.anything());
   });
 
   it("flags PRs over the size limit", () => {
     const big = { ...pr, commits: [{ message: "huge", files: ["x"], added: 1600, removed: 0 }] };
     renderScreen(<HistoryScreen />, makeState({ phase: "history", history: { prs: [big], reviewers: [] } }));
     expect(screen.getByText("1600 lines").className).toContain("bad");
+  });
+});
+
+describe("History finish modes", () => {
+  it("commits locally without asking for reviewers", () => {
+    const { send } = renderScreen(<HistoryScreen />, state());
+    fireEvent.click(screen.getByRole("radio", { name: "Commit locally" }));
+    expect(screen.queryByPlaceholderText("add reviewer…")).toBeNull();
+    fireEvent.click(screen.getByText("Create commits"));
+    expect(send).toHaveBeenLastCalledWith(expect.objectContaining({ type: "publish", mode: "local" }), expect.anything());
   });
 });

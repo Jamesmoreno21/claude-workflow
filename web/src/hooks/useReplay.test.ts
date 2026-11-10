@@ -79,3 +79,15 @@ describe("useReplay", () => {
     expect(r.current.playing).toBe(true);
   });
 });
+
+describe("useReplay after the file changes", () => {
+  it("stays finished when the file grows after the replay ended (e.g. the user's own edit)", () => {
+    const short = buildRows("", "one\ntwo\n");
+    const longer = buildRows("", "one\ntwo\nthree\n");
+    const { result, rerender } = renderHook(({ rows }) => useReplay(rows, "same-file#1", true), { initialProps: { rows: short } });
+    act(() => result.current.skip());
+    rerender({ rows: longer });
+    expect(result.current.done).toBe(true);
+    expect(result.current.playing).toBe(false);
+  });
+});

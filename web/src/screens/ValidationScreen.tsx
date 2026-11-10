@@ -49,7 +49,15 @@ export function ValidationScreen() {
     if (answer.optionId && index < questions.length - 1) setTimeout(() => goTo(index + 1), ANSWER_ADVANCE_MS);
   };
   const submit = () => {
-    send({ type: "answers", answers: Object.fromEntries(questions.map((q) => [q.id, answers[q.id]])) });
+    send(
+      { type: "answers", answers: Object.fromEntries(questions.map((q) => [q.id, answers[q.id]])) },
+      {
+        handoff:
+          stage === "product"
+            ? "Claude is reading your answers and preparing the technical questions…"
+            : "Claude is building the plan from your answers…",
+      },
+    );
     setDraft({});
   };
 

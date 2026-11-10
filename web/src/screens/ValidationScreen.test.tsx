@@ -32,7 +32,10 @@ describe("Validation", () => {
 
     key("1");
     key("Enter");
-    expect(send).toHaveBeenCalledWith({ type: "answers", answers: { q1: { optionId: "b" }, q2: { optionId: "a" } } });
+    expect(send).toHaveBeenCalledWith(
+      { type: "answers", answers: { q1: { optionId: "b" }, q2: { optionId: "a" } } },
+      { handoff: expect.stringMatching(/technical questions/) },
+    );
   });
 
   it("does not submit until every question is answered", () => {

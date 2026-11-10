@@ -20,6 +20,7 @@ export function makeState(patch: Partial<WorkflowState> = {}): WorkflowState {
     outcome: null,
     chat: [],
     claudeWaiting: true,
+    waitCount: 1,
     memory: { reviewers: [] },
     ...patch,
   };

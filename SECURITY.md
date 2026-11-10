@@ -19,5 +19,5 @@ The cockpit runs on your machine and can approve code changes and publish pull r
 
 ## Known limitations
 
-- `claude mcp add -e` stores optional TTS keys in plain text in `~/.claude.json`.
-- The Kokoro voice model and ONNX runtime are downloaded from Hugging Face and jsDelivr on first use.
+- Optional TTS keys come from the environment Claude Code is started with; keep them out of shell history.
+- The Kokoro voice model is downloaded from Hugging Face on first use.

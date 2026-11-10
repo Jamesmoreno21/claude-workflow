@@ -63,11 +63,8 @@ export class Workflow {
   async start(context: TaskContext, { openBrowser = true } = {}): Promise<string> {
     rememberContext(context);
     if (this.store) {
-      // A second /workflow in the same session reuses the open cockpit.
-      this.store.update((s) => {
-        s.context = context;
-        s.phase = "research";
-      });
+      // A second /workflow in the same session reuses the open cockpit, with a clean slate.
+      this.store.reset(context, loadMemory().reviewers);
     } else {
       this.store = new Store(context, loadMemory().reviewers);
       this.store.onUserActsWhileClaudeIdle = this.hooks.onUserActsWhileClaudeIdle ?? null;
@@ -208,6 +205,20 @@ export class Workflow {
 
   wait() {
     return this.run.waitForUser();
+  }
+
+  /** A repo of the current task, by the name Claude gave it. */
+  repo(name: string): RepoRef {
+    return findRepo(this.run.state.context.repos, name);
+  }
+
+  /** The user saved a file in the cockpit editor: refresh its diff and tell Claude. */
+  recordUserEdit(repo: string, path: string) {
+    this.run.update((s) => {
+      const file = s.files.find((f) => f.repo === repo && f.path === path);
+      if (file) file.after = this.read(repo, path).working;
+    });
+    this.run.push({ type: "file_edited", repo, path });
   }
 
   /** Closes the workflow so Claude may end its turn (the cockpit shows it ended). */

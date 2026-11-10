@@ -28,7 +28,10 @@ export function CodeReadyScreen() {
             Independent reviewer agents check every changed file for bugs, security issues, missing constraints and style-guide violations.
           </p>
           {state.claudeWaiting ? (
-            <button className="primary big" onClick={() => send({ type: "start_review" })}>
+            <button
+              className="primary big"
+              onClick={() => send({ type: "start_review" }, { handoff: "Reviewer agents are reading the changes…" })}
+            >
               Start pre-review
             </button>
           ) : (

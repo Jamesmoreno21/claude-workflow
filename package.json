@@ -25,7 +25,6 @@
     "build": "npm run build -w web && npm run build -w server",
     "dev:web": "npm run dev -w web",
     "demo": "npm run build && node server/bin/demo.js",
-    "install-skill": "bash scripts/install.sh",
     "test": "npm run test -w server && npm run test -w web",
     "test:e2e": "npm run build && playwright test",
     "lint": "eslint . && prettier --check .",

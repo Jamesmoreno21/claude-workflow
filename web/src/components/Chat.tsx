@@ -36,6 +36,11 @@ export function Chat({ talk }: { talk: TalkControls }) {
           <div key={message.id} className={`msg ${message.from}`}>
             {message.about && <span className="about">{message.about.replace(":", " ")}</span>}
             <Markdown text={message.text} />
+            {message.selection && (
+              <code className="selection-snippet" title={`${message.selection.repo}/${message.selection.path}`}>
+                {message.selection.text}
+              </code>
+            )}
             {message.via === "voice" && <span className="via">🎙</span>}
           </div>
         ))}

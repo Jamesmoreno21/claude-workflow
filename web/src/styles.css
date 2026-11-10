@@ -2018,3 +2018,300 @@ main {
 .publish-bar .people {
   flex: 1;
 }
+
+/* ---------- Context drawer: repos ---------- */
+.repo-row .icon {
+  font-size: 13px;
+}
+.add-repo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+}
+.add-repo input {
+  flex: 1;
+  min-width: 180px;
+}
+.add-repo .err {
+  flex-basis: 100%;
+}
+.drawer-foot .spacer {
+  flex: 1;
+}
+.ghost.danger {
+  color: var(--red);
+  border-color: rgba(239, 107, 107, 0.4);
+}
+
+/* ---------- Hand-off loader ---------- */
+main {
+  position: relative;
+}
+.handoff {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 24px;
+  background: rgba(14, 17, 22, 0.86);
+  backdrop-filter: blur(3px);
+  animation: rise 0.2s ease-out;
+}
+.handoff h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  max-width: 520px;
+}
+.handoff .status {
+  color: var(--text-2);
+  margin: 4px 0 0;
+}
+.handoff-stalled {
+  max-width: 420px;
+  color: var(--amber);
+  font-size: 13px;
+}
+
+/* ---------- Workspace (Monaco) ---------- */
+.workspace {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  min-height: 0;
+}
+.side {
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.side-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.side-tabs button {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 9px 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+.side-tabs button.on {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+.side-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+  min-height: 0;
+}
+.repo-browser select {
+  margin: 6px 10px;
+  width: calc(100% - 20px);
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 8px;
+}
+.tree-tools {
+  display: flex;
+  gap: 6px;
+  padding: 4px 10px 8px;
+}
+.tree-tools input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.tree-tools .seg button {
+  padding: 3px 8px;
+}
+.tree-dir {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 3px 10px;
+  font: 12.5px var(--mono);
+  color: var(--text-2);
+}
+.tree-dir:hover,
+.tree-file:hover {
+  background: var(--panel-2);
+}
+.tree-file .nm {
+  direction: ltr;
+}
+.tree-file.changed .nm {
+  color: var(--text);
+}
+.git-status {
+  margin-left: auto;
+  font: 10.5px var(--mono);
+  font-weight: 700;
+}
+.git-status.s-M {
+  color: var(--amber);
+}
+.git-status.s-A,
+.git-status.s-new {
+  color: var(--green);
+}
+.git-status.s-D {
+  color: var(--red);
+}
+.tree-empty {
+  padding: 8px 14px;
+  font-size: 12.5px;
+}
+.tabs {
+  align-items: center;
+}
+.tabs-spacer {
+  flex: 1;
+}
+.tabs .layers-toggle {
+  margin-right: 10px;
+}
+.tab .dirty {
+  color: var(--accent);
+  margin-left: 4px;
+}
+.readonly-tag {
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--text-3);
+  border: 1px solid var(--line-2);
+  border-radius: 99px;
+  padding: 0 6px;
+  margin-left: 6px;
+}
+.editor-area {
+  position: relative;
+  overflow: hidden;
+}
+.monaco-wrap {
+  position: absolute;
+  inset: 0;
+}
+.monaco-host {
+  position: absolute;
+  inset: 0;
+}
+.zone-content {
+  padding: 6px 16px 2px 8px;
+}
+.zone-content .finding-box {
+  margin: 0;
+  max-width: 860px;
+  cursor: default;
+}
+.selection-ask-chip {
+  position: absolute;
+  z-index: 10;
+  background: var(--panel-2);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  border-radius: 99px;
+  padding: 3px 10px;
+  font-size: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+.selection-ask {
+  position: absolute;
+  z-index: 10;
+  width: 340px;
+  background: var(--panel-2);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.selection-ask textarea {
+  resize: none;
+}
+.selection-ask .fb-actions {
+  margin-top: 2px;
+  justify-content: flex-end;
+}
+.fix-banner,
+.clear-banner,
+.save-error {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.fix-banner {
+  background: var(--green-soft);
+}
+.fix-banner input {
+  flex: 1;
+  max-width: 320px;
+}
+.fix-banner .fb-fix-title {
+  margin: 0;
+  white-space: nowrap;
+}
+.clear-banner {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.save-error {
+  background: var(--red-soft);
+  color: var(--red);
+  justify-content: space-between;
+}
+.review-foot {
+  justify-content: flex-start;
+}
+.msg .selection-snippet {
+  display: block;
+  margin-top: 6px;
+  font: 11.5px var(--mono);
+  color: var(--text-3);
+  white-space: pre-wrap;
+  max-height: 90px;
+  overflow: hidden;
+  border-left: 2px solid var(--line-2);
+  padding-left: 8px;
+}
+/* Finding boxes live in Monaco view zones; lift that layer above the text layer so they're clickable.
+   Zones only occupy their own band of lines, so they never cover code. */
+.monaco-editor .view-zones {
+  z-index: 5;
+}
+.zone-content {
+  pointer-events: auto;
+  cursor: default;
+}
+.save-btn {
+  padding: 4px 10px;
+  font-size: 12px;
+  margin-right: 8px;
+}

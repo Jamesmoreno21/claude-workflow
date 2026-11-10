@@ -1,7 +1,17 @@
 import { useEffect, useEffectEvent } from "react";
 
+/**
+ * Whether keys go to a text field. Monaco takes input through Chrome's
+ * EditContext (not a textarea), so anything inside an editor counts too.
+ */
 export function isTyping(el: Element | null = document.activeElement) {
-  return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || (el as HTMLElement).isContentEditable);
+  if (!el) return false;
+  if (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+  return (
+    (el as HTMLElement).isContentEditable ||
+    ("editContext" in el && !!(el as HTMLElement & { editContext?: unknown }).editContext) ||
+    !!el.closest(".monaco-editor")
+  );
 }
 
 /**

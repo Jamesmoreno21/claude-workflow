@@ -4,6 +4,27 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Added
+
+- Ships as a Claude Code plugin: `claude plugin marketplace add Jamesmoreno21/claude-workflow`, then `claude plugin install workflow@jamesmoreno21`. The command is now `/workflow:start`.
+- A real code editor (Monaco) for coding and pre-review: replay inside the diff, edit and save files (Claude is told), ask about a selection, browse the whole repository or only changed files, inline or side-by-side diffs.
+- Pre-review findings inside the editor, between the code lines; a fix opens as a diff to approve.
+- Finish by committing locally, pushing branches, or pushing and opening PRs.
+- Add and remove repositories from the ⚙ panel; end the workflow from there.
+- A loader while Claude works on what you sent, with a hint when it doesn't pick it up.
+
+### Fixed
+
+- Claude no longer loses the cockpit: a Stop hook keeps it listening while the workflow is open, and an optional channel wakes an idle session.
+- Starting a second workflow in the same session no longer shows the previous task's questions, answers or files.
+- Shortcuts and push-to-talk no longer fire while typing in the editor.
+- The MCP server exits with its Claude Code session instead of lingering.
+- Slow folders (for example ones macOS asks permission for) no longer freeze the cockpit.
+
+### Removed
+
+- `install.sh` and `npm run install-skill`; install the plugin instead.
+
 ## [0.1.0] - 2026-11-01
 
 First release.

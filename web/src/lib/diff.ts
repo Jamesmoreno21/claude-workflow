@@ -120,3 +120,25 @@ export const lineAt = (lines: TypedLine[], pos: number) =>
     0,
     lines.findLastIndex((l) => l.start <= pos),
   );
+
+/**
+ * The new file as typed so far: unchanged lines, finished added lines, and the
+ * current line up to the cursor. Deleted lines stay out (they're on the HEAD side).
+ */
+export function typedText(rows: Row[], pos: number): { text: string; cursorLine?: number } {
+  const lines: string[] = [];
+  let cursorLine: number | undefined;
+  let offset = 0;
+  for (const row of rows) {
+    if (row.kind === "ctx") lines.push(row.text);
+    if (row.kind !== "add") continue;
+    const start = offset;
+    offset += row.text.length + 1;
+    if (pos < start) continue; // not reached yet
+    if (pos < offset) {
+      lines.push(row.text.slice(0, pos - start));
+      cursorLine = lines.length;
+    } else lines.push(row.text);
+  }
+  return { text: lines.length ? lines.join("\n") + "\n" : "", cursorLine };
+}

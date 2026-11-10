@@ -11,6 +11,10 @@ export const RUNTIME_DIR = "runtime";
 export const SESSION_SAVE_DEBOUNCE_MS = 500;
 export const MEMORY_LIMITS = { repos: 30, styleGuides: 15, reviewers: 30, styleGuideName: 60 };
 
+/** Editor limits: bigger files open as "too large", and huge repos list this many files. */
+export const MAX_EDITOR_FILE_BYTES = 1024 * 1024;
+export const MAX_TREE_FILES = 20_000;
+
 export const RUN_ID_LENGTH = 8;
 export const INITIAL_STATUS = "Reading the task and repositories…";
 

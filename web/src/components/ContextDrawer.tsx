@@ -1,13 +1,76 @@
 import { useState } from "react";
-import { REPO_ROLES, type TaskContext } from "../../../shared/protocol";
+import { REPO_ROLES, type RepoRef, type TaskContext } from "../../../shared/protocol";
 import { useApp } from "../app/AppContext";
 import { REPO_ROLE_LABEL } from "../constants/labels";
+import { inspectRepo } from "../services/api";
+
+function RoleToggle({ role, onChange }: { role: RepoRef["role"]; onChange(role: RepoRef["role"]): void }) {
+  return (
+    <div className="seg">
+      {REPO_ROLES.map((r) => (
+        <button key={r} className={role === r ? "on" : ""} onClick={() => onChange(r)}>
+          {REPO_ROLE_LABEL[r]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Adds a repository by path; the server checks it's a git repo and finds its root. */
+function AddRepo({ repos, onAdd }: { repos: RepoRef[]; onAdd(repo: RepoRef): void }) {
+  const [path, setPath] = useState("");
+  const [role, setRole] = useState<RepoRef["role"]>("change");
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  const add = async () => {
+    if (!path.trim()) return;
+    setChecking(true);
+    const result = await inspectRepo(path);
+    setChecking(false);
+    if (!result.ok) return setError(result.error);
+    if (repos.some((r) => r.path === result.path)) return setError(`${result.name} is already in the task`);
+    const taken = new Set(repos.map((r) => r.name));
+    let name = result.name;
+    for (let n = 2; taken.has(name); n++) name = `${result.name}-${n}`;
+    onAdd({ path: result.path, name, role });
+    setPath("");
+    setError(null);
+  };
+
+  return (
+    <div className="add-repo">
+      <input
+        value={path}
+        placeholder="Add a repository: ~/code/web-app"
+        onChange={(e) => {
+          setPath(e.target.value);
+          setError(null);
+        }}
+        onKeyDown={(e) => e.key === "Enter" && add()}
+      />
+      <RoleToggle role={role} onChange={setRole} />
+      <button className="ghost" disabled={!path.trim() || checking} onClick={add}>
+        {checking ? "Checking…" : "Add"}
+      </button>
+      {error && <small className="err">{error}</small>}
+    </div>
+  );
+}
 
 /** The gear panel: edit what Claude was told at the start, at any time. */
 export function ContextDrawer({ onClose }: { onClose: () => void }) {
   const { state, send } = useApp();
   const [context, setContext] = useState<TaskContext>(() => structuredClone(state.context));
   const update = (patch: Partial<TaskContext>) => setContext({ ...context, ...patch });
+  const setRole = (index: number, role: RepoRef["role"]) =>
+    update({ repos: context.repos.map((r, i) => (i === index ? { ...r, role } : r)) });
+
+  const removeRepo = (repo: RepoRef) => {
+    const touched = state.files.some((f) => f.repo === repo.name);
+    if (touched && !confirm(`Claude already changed files in ${repo.name}. Remove it from the task anyway?`)) return;
+    update({ repos: context.repos.filter((r) => r !== repo) });
+  };
 
   const save = () => {
     send({ type: "context_changed", context });
@@ -45,19 +108,18 @@ export function ContextDrawer({ onClose }: { onClose: () => void }) {
                 <b>{repo.name}</b>
                 <small>{repo.path}</small>
               </div>
-              <div className="seg">
-                {REPO_ROLES.map((role) => (
-                  <button
-                    key={role}
-                    className={repo.role === role ? "on" : ""}
-                    onClick={() => update({ repos: context.repos.map((r, j) => (j === i ? { ...r, role } : r)) })}
-                  >
-                    {REPO_ROLE_LABEL[role]}
-                  </button>
-                ))}
-              </div>
+              <RoleToggle role={repo.role} onChange={(role) => setRole(i, role)} />
+              <button
+                className="icon"
+                title={context.repos.length === 1 ? "A task needs at least one repository" : `Remove ${repo.name}`}
+                disabled={context.repos.length === 1}
+                onClick={() => removeRepo(repo)}
+              >
+                ✕
+              </button>
             </div>
           ))}
+          <AddRepo repos={context.repos} onAdd={(repo) => update({ repos: [...context.repos, repo] })} />
         </div>
 
         <label>
@@ -75,6 +137,17 @@ export function ContextDrawer({ onClose }: { onClose: () => void }) {
         </label>
 
         <div className="drawer-foot">
+          <button
+            className="ghost danger"
+            onClick={() => {
+              if (!confirm("End the workflow? Claude goes back to the terminal; your files stay as they are.")) return;
+              send({ type: "end_workflow" });
+              onClose();
+            }}
+          >
+            End workflow
+          </button>
+          <span className="spacer" />
           <button className="ghost" onClick={onClose}>
             Cancel
           </button>

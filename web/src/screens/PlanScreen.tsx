@@ -143,7 +143,11 @@ export function PlanScreen() {
             </button>
           ))}
         </div>
-        <button className="primary" disabled={!state.claudeWaiting} onClick={() => send({ type: "plan_approved" })}>
+        <button
+          className="primary"
+          disabled={!state.claudeWaiting}
+          onClick={() => send({ type: "plan_approved" }, { handoff: "Claude is starting on the first file…" })}
+        >
           Approve plan, start coding
         </button>
       </footer>

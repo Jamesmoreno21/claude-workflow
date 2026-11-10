@@ -8,6 +8,8 @@ interface Run {
   enabled: boolean;
   pos: number;
   playing: boolean;
+  /** Reached the end once; later growth of the file (e.g. the user's own edits) doesn't reopen it. */
+  finished: boolean;
 }
 
 /** How long to wait before the next step, and where that step lands. */
@@ -32,7 +34,7 @@ function nextStep(lines: ReturnType<typeof typingTimeline>["lines"], pos: number
 export function useReplay(rows: Row[], replayKey: string, enabled: boolean) {
   const { lines, total } = useMemo(() => typingTimeline(rows), [rows]);
   const [speed, setSpeed] = usePreference("replaySpeed");
-  const fresh = (): Run => ({ key: replayKey, enabled, pos: enabled ? 0 : total, playing: enabled });
+  const fresh = (): Run => ({ key: replayKey, enabled, pos: enabled ? 0 : total, playing: enabled, finished: !enabled });
   const [run, setRun] = useState<Run>(fresh);
 
   // Restart when the file or revision changes (state reset during render).
@@ -42,16 +44,20 @@ export function useReplay(rows: Row[], replayKey: string, enabled: boolean) {
     setRun(current);
   }
   const pos = Math.min(current.pos, total);
-  const playing = current.playing && pos < total;
+  const done = current.finished || pos >= total;
+  const playing = current.playing && !done;
 
   useEffect(() => {
     if (!playing) return;
     const { to, delay } = nextStep(lines, pos, speed);
-    const timer = window.setTimeout(() => setRun((r) => ({ ...r, pos: Math.min(to, total) })), delay);
+    const timer = window.setTimeout(() => setRun((r) => ({ ...r, pos: Math.min(to, total), finished: to >= total })), delay);
     return () => clearTimeout(timer);
   }, [playing, pos, speed, lines, total]);
 
-  const moveTo = (to: number) => setRun((r) => ({ ...r, pos: Math.max(0, Math.min(total, to)), playing: false }));
+  const moveTo = (to: number) => {
+    const pos = Math.max(0, Math.min(total, to));
+    setRun((r) => ({ ...r, pos, playing: false, finished: pos >= total }));
+  };
   const currentIndex = lineAt(lines, Math.min(pos, total - 1));
 
   const forward = (wholeHunk = false) => {
@@ -78,13 +84,13 @@ export function useReplay(rows: Row[], replayKey: string, enabled: boolean) {
   return {
     pos,
     total,
-    done: pos >= total,
+    done,
     playing,
     speed,
     setSpeed,
     progress: { line: lines.filter((l) => pos >= l.start + l.length + 1).length, lines: lines.length },
     /** Play/pause; once finished, replays from the start. */
-    toggle: () => setRun((r) => (pos >= total ? { ...r, pos: 0, playing: true } : { ...r, playing: !playing })),
+    toggle: () => setRun((r) => (done ? { ...r, pos: 0, playing: true, finished: false } : { ...r, playing: !playing })),
     forward,
     back,
     skip: () => moveTo(total),

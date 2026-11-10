@@ -14,4 +14,7 @@ export const ROUTES = {
   state: "/api/state",
   tts: "/api/tts",
   ttsProviders: "/api/tts/providers",
+  inspectRepo: "/api/repos/inspect",
+  tree: "/api/tree",
+  file: "/api/file",
 } as const;

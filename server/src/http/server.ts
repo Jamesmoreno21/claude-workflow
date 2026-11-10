@@ -4,11 +4,12 @@ import { createServer } from "node:net";
 import { Hono } from "hono";
 import { WebSocketServer } from "ws";
 import { ROUTES } from "../../../shared/constants.js";
-import type { ServerMessage, UserEvent } from "../../../shared/protocol.js";
+import type { RepoRef, ServerMessage, UserEvent } from "../../../shared/protocol.js";
 import type { TtsRequest } from "../../../shared/tts.js";
 import { BIND_HOST, MAX_SOCKET_MESSAGE_BYTES, PORT_SCAN_RANGE } from "../config/constants.js";
 import { settings } from "../config/settings.js";
 import type { Workflow } from "../core/workflow.js";
+import { fileContents, inspectRepo, readWorking, repoTree, saveFile, SaveConflictError } from "../services/git.js";
 import { availableTtsProviders, synthesize } from "../services/tts.js";
 import { isAllowedHost, isAllowedOrigin } from "./security.js";
 import { serveCockpit } from "./static.js";
@@ -31,6 +32,15 @@ export async function startCockpitServer(workflow: Workflow): Promise<string> {
   const port = await freePort(settings.port);
   const app = new Hono();
 
+  /** Runs `handle` with a task repo; unknown repos and paths outside it become a 400. */
+  const withRepo = async (name: string | undefined, handle: (repo: RepoRef) => Response | Promise<Response>) => {
+    try {
+      return await handle(workflow.repo(name ?? ""));
+    } catch (err) {
+      return new Response((err as Error).message, { status: 400 });
+    }
+  };
+
   app.use(async (c, next) => {
     if (!isAllowedHost(c.req.header("host"), port)) return c.text("Forbidden host", 403);
     if (!isAllowedOrigin(c.req.header("origin"), port)) return c.text("Forbidden origin", 403);
@@ -41,6 +51,25 @@ export async function startCockpitServer(workflow: Workflow): Promise<string> {
 
   app.get(ROUTES.state, (c) => c.json(workflow.store?.state ?? null));
   app.get(ROUTES.ttsProviders, (c) => c.json(availableTtsProviders()));
+  app.post(ROUTES.inspectRepo, async (c) => c.json(await inspectRepo((await c.req.json<{ path: string }>()).path ?? "")));
+  app.get(ROUTES.tree, (c) => withRepo(c.req.query("repo"), async (repo) => c.json(await repoTree(repo.path))));
+  app.get(ROUTES.file, (c) =>
+    withRepo(c.req.query("repo"), async (repo) => c.json(await fileContents(repo.path, c.req.query("path") ?? "", repo.role === "change"))),
+  );
+  app.put(ROUTES.file, async (c) => {
+    const body = await c.req.json<{ repo: string; path: string; content: string; base: string }>();
+    return withRepo(body.repo, async (repo) => {
+      if (repo.role !== "change") return c.text(`${repo.name} is context only; it can't be edited`, 403);
+      try {
+        await saveFile(repo.path, body.path, body.content, body.base);
+      } catch (err) {
+        if (err instanceof SaveConflictError) return c.json({ error: err.message, working: readWorking(repo.path, body.path) }, 409);
+        throw err;
+      }
+      workflow.recordUserEdit(repo.name, body.path);
+      return c.json({ ok: true });
+    });
+  });
   app.post(ROUTES.tts, async (c) => {
     try {
       const audio = await synthesize(await c.req.json<TtsRequest>());

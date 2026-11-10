@@ -77,3 +77,23 @@ describe("Store", () => {
     expect(s.state.findings[0].fix?.ready).toBe(false);
   });
 });
+
+describe("Store.reset", () => {
+  it("starts a new run with nothing carried over from the previous one", async () => {
+    const s = new Store(ctx, []);
+    const firstId = s.state.id;
+    s.state.questions = [{ id: "q1", stage: "product", title: "Old?", context: "", options: [] }];
+    s.push({ type: "answers", answers: { q1: { optionId: "a" } } });
+    s.push({ type: "chat", text: "old message", via: "text" });
+
+    const seen: string[] = [];
+    s.subscribe((state) => seen.push(state.id));
+    s.reset({ ...ctx, title: "Second task" }, ["octocat"]);
+
+    expect(s.state.id).not.toBe(firstId);
+    expect(s.state).toMatchObject({ phase: "research", questions: [], answers: {}, chat: [], files: [], findings: [], outcome: null });
+    expect(s.state.context.title).toBe("Second task");
+    expect(s.drain()).toEqual([]); // the old run's queued events are gone
+    expect(seen.at(-1)).toBe(s.state.id); // the UI hears about the new run
+  });
+});

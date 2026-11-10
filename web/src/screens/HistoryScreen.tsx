@@ -243,7 +243,9 @@ export function HistoryScreen() {
         <button
           className="primary big"
           disabled={!state.claudeWaiting}
-          onClick={() => send({ type: "publish", mode: finishMode, reviewers, prs: history.prs })}
+          onClick={() =>
+            send({ type: "publish", mode: finishMode, reviewers, prs: history.prs }, { handoff: "Claude is creating the commits…" })
+          }
         >
           {FINISH_MODE[finishMode].action(history.prs.length)}
         </button>

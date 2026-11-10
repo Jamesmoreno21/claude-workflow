@@ -20,7 +20,11 @@ export class Store {
   onUserActsWhileClaudeIdle: (() => void) | null = null;
 
   constructor(context: TaskContext, reviewers: string[]) {
-    this.state = {
+    this.state = Store.freshState(context, reviewers);
+  }
+
+  private static freshState(context: TaskContext, reviewers: string[]): WorkflowState {
+    return {
       id: randomUUID().slice(0, RUN_ID_LENGTH),
       phase: "research",
       context,
@@ -35,8 +39,22 @@ export class Store {
       outcome: null,
       chat: [],
       claudeWaiting: false,
+      waitCount: 0,
       memory: { reviewers },
     };
+  }
+
+  /**
+   * Starts a new run in the same cockpit: nothing from the previous task
+   * (questions, answers, files, findings, chat, queued events) carries over.
+   */
+  reset(context: TaskContext, reviewers: string[]) {
+    this.pendingEvents = [];
+    this.idlePingSent = false;
+    this.wakeClaude?.();
+    this.state = Store.freshState(context, reviewers);
+    for (const listener of this.listeners) listener(this.state);
+    saveSession(this.state);
   }
 
   subscribe(listener: Listener) {
@@ -70,13 +88,25 @@ export class Store {
     this.update((s) => {
       switch (event.type) {
         case "chat":
-          s.chat.push({ id: randomUUID(), from: "user", text: event.text, via: event.via, about: event.about, at: Date.now() });
+          s.chat.push({
+            id: randomUUID(),
+            from: "user",
+            text: event.text,
+            via: event.via,
+            about: event.about,
+            selection: event.selection,
+            at: Date.now(),
+          });
           break;
         case "answers":
           s.answers = { ...s.answers, ...event.answers };
           break;
         case "context_changed":
           s.context = event.context;
+          break;
+        case "file_edited":
+          // Claude learns about it with the next event that needs it.
+          needsClaude = false;
           break;
         case "end_workflow":
           s.phase = "ended";
@@ -137,7 +167,10 @@ export class Store {
   /** Blocks until the user does something that needs Claude, or the wait times out. */
   async waitForUser(): Promise<UserEvent[]> {
     if (this.pendingEvents.length) return this.drain();
-    this.update((s) => (s.claudeWaiting = true));
+    this.update((s) => {
+      s.claudeWaiting = true;
+      s.waitCount += 1;
+    });
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, settings.waitMs);
       this.wakeClaude = () => {

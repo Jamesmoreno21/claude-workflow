@@ -28,6 +28,20 @@ export interface RepoRef {
   role: (typeof REPO_ROLES)[number];
 }
 
+/** A repo's files for the editor's tree, and which of them have changes. */
+export interface RepoTree {
+  files: string[];
+  /** Path to git status letter: M modified, A added, ? untracked, D deleted. */
+  changed: Record<string, string>;
+  truncated: boolean;
+}
+
+/** One file for the editor: as committed and as on disk. */
+export type FileContents = { head: string; working: string; binary: false; editable: boolean } | { binary: true };
+
+/** The server's answer when the user adds a repo by path. */
+export type RepoInspection = { ok: true; path: string; name: string } | { ok: false; error: string };
+
 export interface TaskContext {
   title: string;
   task: string;
@@ -190,6 +204,15 @@ export interface Outcome {
 
 /* ---------- Chat ---------- */
 
+/** Lines the user selected in the editor and asked about. */
+export interface CodeSelection {
+  repo: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  text: string;
+}
+
 export interface ChatMessage {
   id: string;
   from: "user" | "claude";
@@ -198,6 +221,7 @@ export interface ChatMessage {
   at: number;
   /** What the message is about, e.g. "finding:3", "slide:s2", "file:api/user.ts". */
   about?: string;
+  selection?: CodeSelection;
 }
 
 /** Phases after which Claude may end its turn: nothing in the cockpit needs it. */
@@ -221,6 +245,8 @@ export interface WorkflowState {
   chat: ChatMessage[];
   /** True while Claude is blocked on the user. False = Claude is working. */
   claudeWaiting: boolean;
+  /** Increments each time Claude starts waiting for the user; tells the UI Claude has moved on. */
+  waitCount: number;
   memory: { reviewers: string[] };
 }
 
@@ -228,7 +254,8 @@ export interface WorkflowState {
 
 export type UserEvent =
   | { type: "answers"; answers: Record<string, Answer> }
-  | { type: "chat"; text: string; via: "voice" | "text"; about?: string }
+  | { type: "chat"; text: string; via: "voice" | "text"; about?: string; selection?: CodeSelection }
+  | { type: "file_edited"; repo: string; path: string }
   | { type: "plan_approved" }
   | { type: "file_approved"; repo: string; path: string }
   | { type: "file_feedback"; repo: string; path: string; text: string }
