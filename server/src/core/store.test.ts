@@ -117,6 +117,27 @@ describe("Store v0.3 review flow", () => {
     expect((await waiting).map((e) => e.type)).toEqual(["finding_fixed_manually", "finding_dismiss"]);
   });
 
+  it("approves fixes without waking Claude, until a repo has nothing left open", async () => {
+    const s = new Store(ctx, []);
+    s.state.findings = [finding(1, "fixing"), finding(2, "fixing"), { ...finding(3), repo: "web" }];
+    const waiting = s.waitForUser();
+    s.push({ type: "fix_approved", id: 1 });
+    expect(s.state.claudeWaiting).toBe(true); // #2 in api is still open
+    s.push({ type: "fix_approved", id: 2 }); // api is done, though web isn't
+    expect((await waiting).map((e) => e.type)).toEqual(["fix_approved", "fix_approved"]);
+  });
+
+  it("counts actions Claude hasn't picked up yet", () => {
+    const s = new Store(ctx, []);
+    s.state.findings = [finding(1)];
+    s.push({ type: "finding_fix", id: 1 });
+    s.push({ type: "chat", text: "hi" });
+    expect(s.state.queued.count).toBe(2);
+    expect(s.state.queued.since).toBeTypeOf("number");
+    s.drain();
+    expect(s.state.queued).toEqual({ count: 0, since: null });
+  });
+
   it("remembers how the user chose to finish", () => {
     const s = new Store(ctx, []);
     s.state.history = { prs: [], reviewers: [] };

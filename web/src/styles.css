@@ -244,6 +244,14 @@ kbd {
   color: var(--red);
   background: var(--red-soft);
 }
+.queued {
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.queued.stalled {
+  color: var(--amber);
+}
 @keyframes blink {
   50% {
     opacity: 0.25;
@@ -994,9 +1002,37 @@ main {
   justify-content: space-between;
 }
 .tree-repo {
-  padding: 8px 14px 4px;
+  padding: 8px 10px 4px 6px;
   font: 12px var(--mono);
   color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.repo-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  padding: 2px 4px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.repo-toggle:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.repo-toggle .st {
+  width: 12px;
+}
+.tree-repo .sm {
+  font-family: var(--sans);
 }
 .tree-file {
   display: flex;
@@ -2081,6 +2117,9 @@ main {
   color: var(--amber);
   font-size: 13px;
 }
+.handoff > button {
+  margin-top: 10px;
+}
 
 /* ---------- Workspace (Monaco) ---------- */
 .workspace {
@@ -2548,7 +2587,7 @@ button.diagram:hover .diagram-hint {
   font-weight: 600;
   color: var(--amber);
 }
-.findings-repo + .findings-repo {
+.repo-group + .repo-group {
   margin-top: 10px;
   border-top: 1px solid var(--line);
   padding-top: 4px;

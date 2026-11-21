@@ -4,6 +4,17 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Added
+
+- Collapse a repository's findings or task files in the side list.
+- Approve a proposed fix right from its finding, or every ready fix in a repo at once.
+- The header shows actions Claude hasn't picked up yet, and how to nudge it if it stopped listening.
+
+### Changed
+
+- Buttons never wait on Claude: approve, submit, start the review or finish at any time; actions queue until Claude is free. The hand-off overlay has a "Keep working" button.
+- Approving, dismissing or hand-fixing a finding no longer wakes Claude, so it's instant. Claude runs a repo's checks once, when its last finding is resolved, never after each fix.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added

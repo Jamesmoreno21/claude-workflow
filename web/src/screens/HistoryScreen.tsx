@@ -243,7 +243,7 @@ export function HistoryScreen() {
         )}
         <button
           className="primary big"
-          disabled={!state.claudeWaiting}
+          disabled={state.publishMode !== null}
           onClick={() =>
             send({ type: "publish", mode: finishMode, reviewers, prs: history.prs }, { handoff: `${PUBLISHING_TITLES[finishMode]}…` })
           }

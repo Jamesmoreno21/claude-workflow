@@ -12,7 +12,7 @@ export interface Handoff {
 }
 
 /** Dims the screen while Claude works on what the user just sent. */
-export function HandoffOverlay({ handoff, status }: { handoff: Handoff; status: string }) {
+export function HandoffOverlay({ handoff, status, onDismiss }: { handoff: Handoff; status: string; onDismiss(): void }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -30,9 +30,13 @@ export function HandoffOverlay({ handoff, status }: { handoff: Handoff; status: 
       <p className="muted">{seconds}s</p>
       {stalled && (
         <p className="handoff-stalled">
-          Claude hasn't picked this up yet. Your answer is saved; if this persists, check the Claude Code terminal.
+          Claude hasn't picked this up yet. It's saved; if this persists, type "continue" in the Claude Code terminal.
         </p>
       )}
+      {/* Never a dead end: everything the user does next is queued for Claude too. */}
+      <button className="ghost" onClick={onDismiss}>
+        Keep working
+      </button>
     </div>
   );
 }

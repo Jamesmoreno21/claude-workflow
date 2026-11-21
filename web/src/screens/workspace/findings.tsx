@@ -6,6 +6,8 @@ import { SEVERITY_ORDER } from "../../constants/labels";
 
 export const findingLabel = (f: Finding) => `finding #${f.id}`;
 
+export const isFixReady = (f: Finding) => f.status === "fixing" && !!f.fix?.ready;
+
 export const sortBySeverity = (findings: Finding[]) =>
   [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] || a.id - b.id);
 
@@ -38,6 +40,19 @@ function FindingActions({ finding }: { finding: Finding }) {
   );
 }
 
+/** A proposed fix can be approved right from its finding, without waiting on anything else. */
+function ReadyFixActions({ finding }: { finding: Finding }) {
+  const { send } = useApp();
+  return (
+    <div className="fb-actions">
+      <button className="primary" onClick={() => send({ type: "fix_approved", id: finding.id })}>
+        Approve fix
+      </button>
+      <span className="muted">The fix is in the editor; adjust it there or above.</span>
+    </div>
+  );
+}
+
 /** A GitHub-style review comment, shown between the editor's lines under the line it's about. */
 export function FindingBox({ finding, selected, onSelect }: { finding: Finding; selected: boolean; onSelect(): void }) {
   return (
@@ -59,9 +74,7 @@ export function FindingBox({ finding, selected, onSelect }: { finding: Finding; 
           <span className="spinner" /> Claude is fixing this…
         </div>
       )}
-      {finding.status === "fixing" && finding.fix?.ready && (
-        <div className="fb-fixing">The proposed fix is in the editor: approve it above, or adjust it and save.</div>
-      )}
+      {isFixReady(finding) && <ReadyFixActions finding={finding} />}
       {finding.status === "fixed" && <div className="fb-done">✓ Fixed</div>}
       {finding.status === "dismissed" && <div className="fb-done muted">Dismissed</div>}
     </div>

@@ -94,6 +94,20 @@ export class Workflow {
     return this.run.state.findings.filter(isUnresolved).map((f) => f.id);
   }
 
+  inReview() {
+    return this.run.state.phase === "review";
+  }
+
+  /** Repos whose last open finding was resolved by these events: each needs its checks run once. */
+  reposCleared(events: UserEvent[]): string[] {
+    const { findings } = this.run.state;
+    const resolved = events.flatMap((e) =>
+      e.type === "fix_approved" || e.type === "finding_dismiss" || e.type === "finding_fixed_manually" ? [e.id] : [],
+    );
+    const repos = new Set(findings.filter((f) => resolved.includes(f.id)).map((f) => f.repo));
+    return [...repos].filter((repo) => !findings.some((f) => f.repo === repo && isUnresolved(f)));
+  }
+
   status(message: string, phase?: LoadingPhase) {
     this.run.update((s) => {
       if (phase) s.phase = phase;

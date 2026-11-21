@@ -11,10 +11,14 @@ const NEXT_STEP: Partial<Record<UserEvent["type"], string>> = {
   start_review:
     "Call workflow_reviewers with every reviewer agent as 'running', launch them, update each one's status and finding count as it finishes, then call workflow_review with the merged findings.",
   finding_fix:
-    "Fix that finding, then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
+    "Fix that finding (edit only; don't run checks), then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
   fix_rejected: "Rework the fix (see the note), then call workflow_fix_ready again.",
   finding_fixed_manually:
-    "The user fixed this finding themselves in the editor. Re-read the file before touching it again; nothing else to do unless it's still wrong.",
+    "The user fixed this finding themselves in the editor. Re-read the file before touching it again. Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
+  fix_approved:
+    "Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
+  finding_dismiss:
+    "Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
   history_changed: "Revise the proposal and call workflow_propose_history again.",
   history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
   publish:

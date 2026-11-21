@@ -45,7 +45,7 @@ export function ValidationScreen() {
   // Once sent, answers are read only (until Claude asks a question again).
   const isSent = (id: string) => state.submitted.includes(id);
   const stageSent = questions.length > 0 && questions.every((q) => isSent(q.id));
-  const canSubmit = answeredCount === questions.length && state.claudeWaiting && !stageSent;
+  const canSubmit = answeredCount === questions.length && !stageSent;
 
   const pick = (answer: Answer) => {
     if (isSent(question.id)) return;

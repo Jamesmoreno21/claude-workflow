@@ -277,6 +277,8 @@ export interface WorkflowState {
   claudeWaiting: boolean;
   /** Increments each time Claude starts waiting for the user; tells the UI Claude has moved on. */
   waitCount: number;
+  /** Actions the user took that Claude hasn't picked up yet, and since when. */
+  queued: { count: number; since: number | null };
   memory: { reviewers: string[] };
 }
 

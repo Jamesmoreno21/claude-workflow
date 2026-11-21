@@ -70,12 +70,12 @@ function useHandoff(state: WorkflowState) {
     setSeenState(state);
     setHandoff({ label, sentAt: Date.now(), phase: state.phase, waitCount: state.waitCount, claudeTookOver: false });
   };
-  return { handoff, start };
+  return { handoff, start, clear: () => setHandoff(null) };
 }
 
 /** One workflow run. Keyed by the run id, so a new run starts with no leftover screen state. */
 function Cockpit({ state, connected, sendEvent }: { state: WorkflowState; connected: boolean; sendEvent(event: UserEvent): void }) {
-  const { handoff, start: startHandoff } = useHandoff(state);
+  const { handoff, start: startHandoff, clear: clearHandoff } = useHandoff(state);
   const send = (event: UserEvent, options?: SendOptions) => {
     sendEvent(event);
     if (options?.handoff) startHandoff(options.handoff);
@@ -98,7 +98,7 @@ function Cockpit({ state, connected, sendEvent }: { state: WorkflowState; connec
             <Suspense fallback={<LoadingScreen />}>
               <Screen />
             </Suspense>
-            {handoff && <HandoffOverlay handoff={handoff} status={state.status.message} />}
+            {handoff && <HandoffOverlay handoff={handoff} status={state.status.message} onDismiss={clearHandoff} />}
           </main>
           {withChat && <Chat talk={talk} />}
         </div>

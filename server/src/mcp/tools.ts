@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import type { UserEvent } from "../../../shared/protocol.js";
 import { COMMIT_LINES_TARGET, PR_LINES_MAX, PR_LINES_TARGET } from "../../../shared/constants.js";
 import type { Workflow } from "../core/workflow.js";
 import { loadMemory } from "../services/memory.js";
@@ -8,7 +9,9 @@ import { answer, finding, outcome, plannedPr, pr, question, repo, reviewer, slid
 
 /** Registers every workflow_* tool. Descriptions are written for Claude. */
 export function registerTools(mcp: McpServer, workflow: Workflow) {
-  const withUnresolved = () => ({ unresolved: workflow.unresolvedFindingIds() });
+  /** Review results also say what's left open and which repos just finished review. */
+  const reviewResult = (events: UserEvent[]) =>
+    eventsResult(events, { unresolved: workflow.unresolvedFindingIds(), reposCleared: workflow.reposCleared(events) });
 
   mcp.registerTool(
     "workflow_memory",
@@ -117,7 +120,7 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
         "Show pre-review findings inline in the code (numbered, GitHub-style, with Fix/Dismiss/Ask) and wait. Deduplicate findings from all reviewers first. Call with an empty list to add none. Returns when the user acts; when no finding is unresolved, propose the commit history.",
       inputSchema: { findings: z.array(finding) },
     },
-    async ({ findings }) => eventsResult(await workflow.review(findings), withUnresolved()),
+    async ({ findings }) => reviewResult(await workflow.review(findings)),
   );
 
   mcp.registerTool(
@@ -137,7 +140,7 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
         "A fix for a finding is in the working tree; the user sees it as a diff to approve. Returns at once with any pending events (e.g. more fixes the user queued), so keep fixing; call workflow_wait when nothing is left.",
       inputSchema: { id: z.number().int() },
     },
-    async ({ id }) => eventsResult(workflow.fixReady(id), withUnresolved()),
+    async ({ id }) => reviewResult(workflow.fixReady(id)),
   );
 
   mcp.registerTool(
@@ -192,7 +195,8 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
     async ({ text: message, about, setAnswers }) => eventsResult(workflow.reply(message, about, setAnswers)),
   );
 
-  mcp.registerTool("workflow_wait", { description: "Wait for the user's next action in the cockpit." }, async () =>
-    eventsResult(await workflow.wait()),
-  );
+  mcp.registerTool("workflow_wait", { description: "Wait for the user's next action in the cockpit." }, async () => {
+    const events = await workflow.wait();
+    return workflow.inReview() ? reviewResult(events) : eventsResult(events);
+  });
 }

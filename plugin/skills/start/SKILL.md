@@ -16,7 +16,9 @@ Golden rules:
   questions in the terminal. Ask through `workflow_ask`, answer through
   `workflow_reply`.
 - **Waiting tools return user events.** Handle every event in the result,
-  following its `next` hints. When the result says the user is still working,
+  following its `next` hints. The user can act at any time, even while you
+  work, so any workflow tool's result may carry queued events: handle them
+  too. When the result says the user is still working,
   call `workflow_wait`. Never end your turn while the workflow is running: a
   Stop hook reminds you if you try. If the user asks in the terminal to stop
   the workflow, call `workflow_end` first.
@@ -173,6 +175,12 @@ file), so get the line right. Then:
 - `finding_fix`: fix it, then `workflow_fix_ready(id)`. The user can queue
   several fixes; `workflow_fix_ready` returns at once with anything queued
   meanwhile, so work through them all before calling `workflow_wait`.
+- `fix_approved`, `finding_dismiss`: nothing to do. You only hear about them
+  when they finish a repo.
+- **No checks per finding.** Don't run tests, builds or linters after each fix.
+  When a result lists a repo in `reposCleared`, every finding there is
+  resolved: run that repo's checks once. If they fail, fix the code and tell
+  the user with `workflow_reply`.
 - `fix_rejected`: rework it using the note, then `workflow_fix_ready(id)`
   again. The user may also have edited the fix in the editor
   (`file_edited`): build on their version.

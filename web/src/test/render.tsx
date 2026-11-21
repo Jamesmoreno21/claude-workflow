@@ -24,6 +24,7 @@ export function makeState(patch: Partial<WorkflowState> = {}): WorkflowState {
     chat: [],
     claudeWaiting: true,
     waitCount: 1,
+    queued: { count: 0, since: null },
     memory: { reviewers: [] },
     ...patch,
   };

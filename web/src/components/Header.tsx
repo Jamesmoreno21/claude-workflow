@@ -1,16 +1,42 @@
+import { useEffect, useState } from "react";
 import { FINISHED_PHASES, PHASES } from "../../../shared/protocol";
 import { useApp } from "../app/AppContext";
 import { STEP_OF } from "../constants/phases";
+import { HANDOFF_STALL_MS } from "../constants/ui";
 import { MIC_TOGGLE_LABEL } from "../constants/shortcuts";
 import { speechRecognitionSupported } from "../services/speech-recognition";
 import { NarrationSettings } from "./NarrationSettings";
 import type { PastStep } from "./PastSteps";
 
+/** Actions waiting for Claude; after a while, how to nudge a session that stopped listening. */
+function QueuedNotice() {
+  const { state } = useApp();
+  const { count, since } = state.queued;
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!count) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [count]);
+  if (!count) return null;
+  const stalled = since !== null && now - since > HANDOFF_STALL_MS;
+  return (
+    <span className={`queued ${stalled ? "stalled" : ""}`} title="Saved. Claude picks these up as soon as it's free.">
+      {count} queued{stalled && ' · not picked up? Type "continue" in the terminal'}
+    </span>
+  );
+}
+
 function TurnIndicator({ connected }: { connected: boolean }) {
   const { state } = useApp();
   if (FINISHED_PHASES.includes(state.phase)) return <span className="turn you">Done</span>;
   if (!connected) return <span className="turn off">Disconnected</span>;
-  return state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>;
+  return (
+    <>
+      {state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>}
+      <QueuedNotice />
+    </>
+  );
 }
 
 /** Finished steps whose content can be read again from the stepper. */

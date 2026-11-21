@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { isUnresolved, type CodeSelection, type FileEntry, type Finding } from "../../../../shared/protocol";
 import { useApp, useFocus } from "../../app/AppContext";
 import { DiffEditor, type DiffEditorHandle, type Zone } from "../../components/editor/DiffEditor";
@@ -9,7 +9,7 @@ import { useReplay } from "../../hooks/useReplay";
 import { buildRows, typedText } from "../../lib/diff";
 import { saveFile } from "../../services/files";
 import { fileKey, LayerStrip, ReplayBar } from "./bars";
-import { FindingBox, findingLabel, FixBanner, sortBySeverity } from "./findings";
+import { FindingBox, findingLabel, FixBanner, isFixReady, sortBySeverity } from "./findings";
 import { RepoBrowser } from "./RepoBrowser";
 import { useRepoFile } from "./useRepoData";
 
@@ -34,6 +34,24 @@ function useOpenDocument(followed: DocRef | undefined, followKey: string | undef
   return { doc, open: (ref: DocRef) => setPicked({ ref, whileFollowing: followKey }) };
 }
 
+/** A repository's section in the side list; collapsible, with an optional action in its header. */
+function RepoGroup({ name, summary, action, children }: { name: string; summary?: string; action?: ReactNode; children: ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div className={`repo-group ${collapsed ? "collapsed" : ""}`}>
+      <div className="tree-repo">
+        <button className="repo-toggle" onClick={() => setCollapsed(!collapsed)} title={collapsed ? "Expand" : "Collapse"}>
+          <span className="st">{collapsed ? "▸" : "▾"}</span>
+          {name}
+          {summary && <span className="muted"> · {summary}</span>}
+        </button>
+        {action}
+      </div>
+      {!collapsed && children}
+    </div>
+  );
+}
+
 function TaskFiles({
   files,
   current,
@@ -50,8 +68,11 @@ function TaskFiles({
   return (
     <>
       {repos.map((repo) => (
-        <div key={repo.name}>
-          <div className="tree-repo">{repo.name}</div>
+        <RepoGroup
+          key={repo.name}
+          name={repo.name}
+          summary={`${files.filter((f) => f.repo === repo.name && f.status === "approved").length}/${files.filter((f) => f.repo === repo.name).length} approved`}
+        >
           {files
             .filter((f) => f.repo === repo.name)
             .map((f) => (
@@ -61,7 +82,7 @@ function TaskFiles({
                 {showLayers && f.layer && <span className="layer-tag">{f.layer}</span>}
               </button>
             ))}
-        </div>
+        </RepoGroup>
       ))}
       {files.length === 0 && <p className="tree-empty muted">Claude hasn't started a file yet.</p>}
     </>
@@ -70,17 +91,31 @@ function TaskFiles({
 
 /** Findings grouped by repository, then file, so multi-repo reviews stay readable. */
 function FindingsList({ findings, selected, onSelect }: { findings: Finding[]; selected?: Finding; onSelect(f: Finding): void }) {
+  const { send } = useApp();
   const repos = [...new Set(findings.map((f) => f.repo))];
   return (
     <>
       {repos.map((repo) => {
         const inRepo = findings.filter((f) => f.repo === repo);
         const files = [...new Set(inRepo.map((f) => f.path))];
+        const ready = inRepo.filter(isFixReady);
         return (
-          <div key={repo} className="findings-repo">
-            <div className="tree-repo">
-              {repo} <span className="muted">· {inRepo.filter(isUnresolved).length} open</span>
-            </div>
+          <RepoGroup
+            key={repo}
+            name={repo}
+            summary={`${inRepo.filter(isUnresolved).length} open`}
+            action={
+              ready.length > 1 && (
+                <button
+                  className="ghost sm"
+                  onClick={() => ready.forEach((f) => send({ type: "fix_approved", id: f.id }))}
+                  title="Approve every proposed fix in this repo"
+                >
+                  Approve {ready.length} fixes
+                </button>
+              )
+            }
+          >
             {files.map((path) => (
               <div key={path}>
                 <div className="findings-file" title={path}>
@@ -97,14 +132,14 @@ function FindingsList({ findings, selected, onSelect }: { findings: Finding[]; s
                           line {f.line} · {f.category}
                         </small>
                       </div>
-                      <span className={`st ${f.fix?.ready && f.status === "fixing" ? "fix-ready" : ""}`}>
-                        {f.fix?.ready && f.status === "fixing" ? "●" : FINDING_STATUS_ICON[f.status]}
+                      <span className={`st ${isFixReady(f) ? "fix-ready" : ""}`} title={isFixReady(f) ? "Fix ready to approve" : undefined}>
+                        {isFixReady(f) ? "●" : FINDING_STATUS_ICON[f.status]}
                       </span>
                     </button>
                   ))}
               </div>
             ))}
-          </div>
+          </RepoGroup>
         );
       })}
     </>
@@ -207,7 +242,7 @@ export function WorkspaceScreen() {
   const [sideBySide, setSideBySide] = useState(false);
   const slide = state.plan?.slides.find((s) => s.id === taskFile?.planRef);
   const layers = state.plan?.layers?.length ? state.plan.layers : [...new Set(files.map((f) => f.layer).filter((l) => l !== undefined))];
-  const canApprove = awaitingApproval && replay.done && state.claudeWaiting && !dirty;
+  const canApprove = awaitingApproval && replay.done && !dirty;
   const approve = () =>
     taskFile &&
     send({ type: "file_approved", repo: taskFile.repo, path: taskFile.path }, { handoff: "Claude is moving to the next file…" });

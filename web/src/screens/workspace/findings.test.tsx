@@ -41,6 +41,15 @@ describe("review findings", () => {
   });
 });
 
+describe("ready fixes", () => {
+  it("approves a proposed fix straight from its finding", () => {
+    const ready: Finding = { ...finding, status: "fixing", fix: { before: "a", after: "b", ready: true } };
+    const { send } = renderScreen(<FindingBox finding={ready} selected onSelect={() => {}} />, makeState({ claudeWaiting: false }));
+    fireEvent.click(screen.getByText("Approve fix"));
+    expect(send).toHaveBeenCalledWith({ type: "fix_approved", id: 7 });
+  });
+});
+
 describe("ReviewingScreen", () => {
   it("shows each reviewer agent with what it checks and its progress", () => {
     renderScreen(

@@ -43,6 +43,7 @@ export class Store {
       chat: [],
       claudeWaiting: false,
       waitCount: 0,
+      queued: { count: 0, since: null },
       memory: { reviewers },
     };
   }
@@ -77,6 +78,7 @@ export class Store {
     const needsClaude = this.apply(event);
     this.pendingEvents.push(event);
     if (!needsClaude) return;
+    this.update((s) => (s.queued = { count: s.queued.count + 1, since: s.queued.since ?? Date.now() }));
     if (this.wakeClaude) this.wakeClaude();
     else if (!this.idlePingSent) {
       this.idlePingSent = true;
@@ -88,6 +90,13 @@ export class Store {
   private apply(event: UserEvent): boolean {
     let needsClaude = true;
     const finding = (id: number): Finding | undefined => this.state.findings.find((f) => f.id === id);
+    // Resolving a finding needs Claude only once its repo has nothing left open (to run that repo's checks).
+    const resolve = (id: number, status: "fixed" | "dismissed") => {
+      const f = finding(id);
+      if (!f) return false;
+      f.status = status;
+      return !this.state.findings.some((x) => x.repo === f.repo && isUnresolved(x));
+    };
     this.update((s) => {
       switch (event.type) {
         case "chat":
@@ -117,13 +126,10 @@ export class Store {
           s.phase = "reviewing";
           s.reviewers = [];
           break;
-        case "finding_fixed_manually": {
-          const f = finding(event.id);
-          if (f) f.status = "fixed";
-          // Claude hears about it with the next event, or when the review clears.
-          needsClaude = !s.findings.some(isUnresolved);
+        case "finding_fixed_manually":
+        case "fix_approved":
+          needsClaude = resolve(event.id, "fixed");
           break;
-        }
         case "end_workflow":
           s.phase = "ended";
           break;
@@ -132,21 +138,12 @@ export class Store {
           if (file) file.status = "approved";
           break;
         }
-        case "finding_dismiss": {
-          const f = finding(event.id);
-          if (f) f.status = "dismissed";
-          // Dismissing needs no work from Claude, unless it clears the review.
-          needsClaude = !s.findings.some(isUnresolved);
+        case "finding_dismiss":
+          needsClaude = resolve(event.id, "dismissed");
           break;
-        }
         case "finding_fix": {
           const f = finding(event.id);
           if (f) f.status = "fixing";
-          break;
-        }
-        case "fix_approved": {
-          const f = finding(event.id);
-          if (f) f.status = "fixed";
           break;
         }
         case "fix_rejected": {
@@ -178,6 +175,7 @@ export class Store {
   /** Everything the user did since Claude last looked, without waiting. */
   drain(): UserEvent[] {
     this.idlePingSent = false;
+    if (this.state.queued.count) this.update((s) => (s.queued = { count: 0, since: null }));
     return this.pendingEvents.splice(0);
   }
 

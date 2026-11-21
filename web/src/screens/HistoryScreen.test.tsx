@@ -60,6 +60,12 @@ describe("History", () => {
     expect(send).toHaveBeenLastCalledWith({ type: "publish", mode: "pr", reviewers: ["octocat"], prs: [pr] }, expect.anything());
   });
 
+  it("can finish while Claude is still busy: the action is queued", () => {
+    const { send } = renderScreen(<HistoryScreen />, { ...state(), claudeWaiting: false });
+    fireEvent.click(screen.getByText(/Open 1 PR/));
+    expect(send).toHaveBeenCalled();
+  });
+
   it("flags PRs over the size limit", () => {
     const big = { ...pr, commits: [{ message: "huge", files: ["x"], added: 1600, removed: 0 }] };
     renderScreen(<HistoryScreen />, makeState({ phase: "history", history: { prs: [big], reviewers: [] } }));
