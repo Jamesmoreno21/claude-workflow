@@ -40424,9 +40424,13 @@ var settings = {
   get port() {
     return number4("WORKFLOW_PORT", DEFAULT_PORT);
   },
-  /** How long a waiting tool blocks before handing control back to Claude. */
+  /**
+   * How long a waiting tool blocks before handing control back to Claude. Each
+   * hand-back costs a model turn, so it's long, but under Claude Code's
+   * 30-minute idle limit for stdio tool calls.
+   */
   get waitMs() {
-    return number4("WORKFLOW_WAIT_MS", 8 * 6e4);
+    return number4("WORKFLOW_WAIT_MS", 25 * 6e4);
   },
   /** Where memory and session snapshots are stored. */
   get home() {
@@ -44024,6 +44028,7 @@ var Store = class _Store {
   pendingEvents = [];
   wakeClaude = null;
   idlePingSent = false;
+  resumeWaiters = [];
   /** Called once when the user acts while Claude isn't waiting (e.g. to ping its session). */
   onUserActsWhileClaudeIdle = null;
   constructor(context, reviewers) {
@@ -44050,6 +44055,8 @@ var Store = class _Store {
       claudeWaiting: false,
       waitCount: 0,
       queued: { count: 0, since: null },
+      paused: false,
+      codeApproval: "every",
       memory: { reviewers }
     };
   }
@@ -44061,6 +44068,7 @@ var Store = class _Store {
     this.pendingEvents = [];
     this.idlePingSent = false;
     this.wakeClaude?.();
+    this.resumeWaiters.splice(0).forEach((resume) => resume());
     this.state = _Store.freshState(context, reviewers);
     for (const listener of this.listeners) listener(this.state);
     saveSession(this.state);
@@ -44077,15 +44085,35 @@ var Store = class _Store {
   }
   /** Applies an event from the UI and queues it for Claude. */
   push(event) {
+    if (event.type === "pause" || event.type === "resume") return this.setPaused(event.type === "pause");
     const needsClaude = this.apply(event);
     this.pendingEvents.push(event);
     if (!needsClaude) return;
     this.update((s) => s.queued = { count: s.queued.count + 1, since: s.queued.since ?? Date.now() });
+    if (this.state.paused) return;
     if (this.wakeClaude) this.wakeClaude();
     else if (!this.idlePingSent) {
       this.idlePingSent = true;
       this.onUserActsWhileClaudeIdle?.();
     }
+  }
+  /** Pausing holds Claude at its next workflow call; resuming lets it go and hands it anything queued. */
+  setPaused(paused) {
+    this.update((s) => s.paused = paused);
+    if (paused) return;
+    this.resumeWaiters.splice(0).forEach((resume) => resume());
+    if (this.state.queued.count) this.wakeClaude?.();
+  }
+  /** Resolves true at once, or when the user resumes; false if still paused after the wait timeout. */
+  untilResumed() {
+    if (!this.state.paused) return Promise.resolve(true);
+    return new Promise((resolve2) => {
+      const timer = setTimeout(() => resolve2(false), settings.waitMs);
+      this.resumeWaiters.push(() => {
+        clearTimeout(timer);
+        resolve2(true);
+      });
+    });
   }
   /** Updates the state for an event; returns whether Claude must react now. */
   apply(event) {
@@ -44130,6 +44158,9 @@ var Store = class _Store {
           break;
         case "end_workflow":
           s.phase = "ended";
+          break;
+        case "plan_approved":
+          s.codeApproval = event.approval;
           break;
         case "file_approved": {
           const file2 = s.files.find((f) => f.repo === event.repo && f.path === event.path);
@@ -44190,7 +44221,7 @@ var Store = class _Store {
     });
     this.wakeClaude = null;
     this.update((s) => s.claudeWaiting = false);
-    return this.drain();
+    return this.state.paused ? [] : this.drain();
   }
 };
 
@@ -44238,6 +44269,13 @@ var Workflow = class {
   }
   unresolvedFindingIds() {
     return this.run.state.findings.filter(isUnresolved).map((f) => f.id);
+  }
+  /** Holds a tool call while the user has the workflow paused; false if it's still paused. */
+  untilResumed() {
+    return this.run.untilResumed();
+  }
+  paused() {
+    return this.run.state.paused;
   }
   inReview() {
     return this.run.state.phase === "review";
@@ -44287,18 +44325,26 @@ var Workflow = class {
     });
     return this.run.drain();
   }
-  /** Shows the file's diff against HEAD; the UI replays it and waits for approval. */
-  fileReady(repo2, path) {
+  /**
+   * Shows the file's diff against HEAD. Waits for the user's approval, unless
+   * their code-approval choice skips this file: then it's approved at once.
+   */
+  async fileReady(repo2, path, key = false, keySections = []) {
     const { head, working } = this.read(repo2, path);
+    const { codeApproval } = this.run.state;
+    const needsApproval = codeApproval === "every" || codeApproval === "key" && key;
     this.run.update((s) => {
       s.phase = "coding";
       const file2 = this.fileEntry(s, repo2, path, "writing");
       file2.before = head;
       file2.after = working;
-      file2.status = "awaiting_approval";
+      file2.key = key;
+      file2.keySections = keySections;
+      file2.status = needsApproval ? "awaiting_approval" : "approved";
+      file2.autoApproved = !needsApproval;
       file2.revision += 1;
     });
-    return this.run.waitForUser();
+    return { autoApproved: !needsApproval, events: needsApproval ? await this.run.waitForUser() : this.run.drain() };
   }
   codeReady(markdown) {
     this.run.update((s) => {
@@ -44418,7 +44464,7 @@ var Workflow = class {
 var NEXT_STEP = {
   chat: "Answer with workflow_reply (short, spoken-friendly), act on it if it asks for a change, then call workflow_wait.",
   answers: "If every question is answered, move on (technical questions, then the plan).",
-  plan_approved: "Plan approved. Start coding: workflow_begin_file for the first file.",
+  plan_approved: "Plan approved. Start coding: workflow_begin_file for the first file. The event's `approval` is how the user reviews code: 'every' file, only 'key' files (mark them with `key` in workflow_file_ready), or 'auto' (none); with 'key' or 'auto', still pass `key` and `keySections` so they know where to look.",
   file_feedback: "Rework that file, then call workflow_file_ready again.",
   file_approved: "Move to the next file in the plan. Don't run tests, builds or agents between files: once every file is approved, run the checks once (workflow_status with phase 'checking'), then workflow_code_ready with the results.",
   start_review: "Call workflow_reviewers with every reviewer agent as 'running', launch them, update each one's status and finding count as it finishes, then call workflow_review with the merged findings.",
@@ -44436,8 +44482,9 @@ var NEXT_STEP = {
 };
 var STILL_WAITING = "The user is still working. Call workflow_wait to keep waiting.";
 var text = (message) => ({ content: [{ type: "text", text: message }] });
-function eventsResult(events, extra) {
-  const next = events.length ? [...new Set(events.map((e) => NEXT_STEP[e.type]).filter(Boolean))] : [STILL_WAITING];
+function eventsResult(events, extra, nextFirst) {
+  const hints = [...new Set(events.map((e) => NEXT_STEP[e.type]).filter(Boolean))];
+  const next = nextFirst ? [nextFirst, ...hints] : hints.length || events.length ? hints : [STILL_WAITING];
   return text(JSON.stringify({ events, next, ...extra }, null, 2));
 }
 
@@ -44516,7 +44563,13 @@ var reviewer = external_exports.object({
 var answer = external_exports.object({ optionId: external_exports.string().optional(), text: external_exports.string().optional() });
 
 // server/src/mcp/tools.ts
-function registerTools(mcp2, workflow) {
+var AUTO_APPROVED = "Auto-approved by the user's code-approval choice. Go straight to the next file (or the checks if it was the last).";
+var UNGATED = ["workflow_end", "workflow_memory"];
+var PAUSED = "The user paused the workflow in the cockpit. Do nothing else: no other tools, no reading or writing files. Call this same tool again with the same input to keep waiting for them to resume.";
+function registerTools(server, workflow) {
+  const mcp2 = {
+    registerTool: ((name, config2, handler) => server.registerTool(name, config2, (async (...args) => UNGATED.includes(name) || await workflow.untilResumed() ? handler(...args) : text(PAUSED))))
+  };
   const reviewResult = (events) => eventsResult(events, { unresolved: workflow.unresolvedFindingIds(), reposCleared: workflow.reposCleared(events) });
   mcp2.registerTool(
     "workflow_memory",
@@ -44588,10 +44641,23 @@ function registerTools(mcp2, workflow) {
   mcp2.registerTool(
     "workflow_file_ready",
     {
-      description: "The file is written. The UI replays the diff line by line and waits for the user to approve it or give feedback. Do not start the next file before approval.",
-      inputSchema: { repo: external_exports.string(), path: external_exports.string() }
+      description: "The file is written. The UI replays the diff and waits for the user to approve it or give feedback, unless their code-approval choice skips it (`autoApproved` in the result): then go straight to the next file. Do not start the next file before approval.",
+      inputSchema: {
+        repo: external_exports.string(),
+        path: external_exports.string(),
+        key: external_exports.boolean().optional().describe("True for files worth a human look: core logic, security, data model, public API, tricky edge cases"),
+        keySections: external_exports.array(
+          external_exports.object({
+            line: external_exports.number().int().min(1).describe("1-based line in the new file"),
+            note: external_exports.string().describe("Why to read this")
+          })
+        ).optional().describe("The few spots in this file the user should read closely")
+      }
     },
-    async ({ repo: repo2, path }) => eventsResult(await workflow.fileReady(repo2, path))
+    async ({ repo: repo2, path, key, keySections }) => {
+      const { autoApproved, events } = await workflow.fileReady(repo2, path, key, keySections);
+      return autoApproved ? eventsResult(events, { autoApproved }, AUTO_APPROVED) : eventsResult(events);
+    }
   );
   mcp2.registerTool(
     "workflow_code_ready",
@@ -44672,6 +44738,7 @@ function registerTools(mcp2, workflow) {
   );
   mcp2.registerTool("workflow_wait", { description: "Wait for the user's next action in the cockpit." }, async () => {
     const events = await workflow.wait();
+    if (workflow.paused()) return text(PAUSED);
     return workflow.inReview() ? reviewResult(events) : eventsResult(events);
   });
 }

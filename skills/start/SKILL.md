@@ -18,7 +18,11 @@ Golden rules:
 - **Waiting tools return user events.** Handle every event in the result,
   following its `next` hints. The user can act at any time, even while you
   work, so any workflow tool's result may carry queued events: handle them
-  too. When the result says the user is still working,
+  too.
+- **Spend nothing while the user reads.** While you wait, only call
+  `workflow_wait`: don't read files, plan ahead or poll. If the user pauses
+  the workflow, any workflow tool replies that it's paused: call the same tool
+  again with the same input and do nothing else. When the result says the user is still working,
   call `workflow_wait`. Never end your turn while the workflow is running: a
   Stop hook reminds you if you try. If the user asks in the terminal to stop
   the workflow, call `workflow_end` first.
@@ -128,10 +132,17 @@ For each file, in the order of the plan:
    is one of the plan's `layers`
 2. Write the change with your normal Edit/Write tools, following the style
    guide.
-3. `workflow_file_ready(repo, path)`. The user watches the diff replay in the
-   editor and approves it, edits it themselves (`file_edited`), or gives
-   feedback (`file_feedback`) that you apply before calling
-   `workflow_file_ready` again.
+3. `workflow_file_ready(repo, path, key, keySections)`. Set `key` for files
+   worth a human look (core logic, security, data model, public API, tricky
+   edge cases) and list the few `keySections` (line and why) to read closely.
+   The user watches the diff replay in the editor and approves it, edits it
+   themselves (`file_edited`), or gives feedback (`file_feedback`) that you
+   apply before calling `workflow_file_ready` again.
+
+**Code approval.** `plan_approved` carries the user's choice: `every` file,
+only `key` files, or `auto` (none). A file that doesn't need approval comes
+back with `autoApproved`: go straight to the next one. The user can still
+open any file and send `file_feedback`, which reopens it.
 
 Don't start the next file until the current one is approved. A
 `file_feedback` on an already approved file reopens it.

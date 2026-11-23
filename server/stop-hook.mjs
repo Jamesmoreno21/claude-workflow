@@ -37,9 +37,13 @@ var settings = {
   get port() {
     return number("WORKFLOW_PORT", DEFAULT_PORT);
   },
-  /** How long a waiting tool blocks before handing control back to Claude. */
+  /**
+   * How long a waiting tool blocks before handing control back to Claude. Each
+   * hand-back costs a model turn, so it's long, but under Claude Code's
+   * 30-minute idle limit for stdio tool calls.
+   */
   get waitMs() {
-    return number("WORKFLOW_WAIT_MS", 8 * 6e4);
+    return number("WORKFLOW_WAIT_MS", 25 * 6e4);
   },
   /** Where memory and session snapshots are stored. */
   get home() {

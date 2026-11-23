@@ -7,7 +7,7 @@
       ],
       "env": {
         "WORKFLOW_WEB_DIST": "${CLAUDE_PLUGIN_ROOT}/web",
-        "WORKFLOW_VERSION": "0.4.1"
+        "WORKFLOW_VERSION": "0.5.0"
       }
     }
   }
