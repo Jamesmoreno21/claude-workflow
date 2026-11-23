@@ -4,6 +4,10 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Fixed
+
+- Installs on Linux no longer fail downloading unused GPU binaries for onnxruntime-node.
+
 ## [0.4.0] - 2026-11-23
 
 ### Added

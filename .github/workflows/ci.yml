@@ -12,6 +12,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # onnxruntime-node (pulled in by the voice library) tries to download GPU binaries
+  # on Linux; we never use them, and the download can 404.
+  ONNXRUNTIME_NODE_INSTALL_CUDA: skip
+
 jobs:
   lint:
     name: Lint and typecheck
