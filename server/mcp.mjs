@@ -44049,6 +44049,7 @@ var Store = class _Store {
       chat: [],
       claudeWaiting: false,
       waitCount: 0,
+      queued: { count: 0, since: null },
       memory: { reviewers }
     };
   }
@@ -44079,6 +44080,7 @@ var Store = class _Store {
     const needsClaude = this.apply(event);
     this.pendingEvents.push(event);
     if (!needsClaude) return;
+    this.update((s) => s.queued = { count: s.queued.count + 1, since: s.queued.since ?? Date.now() });
     if (this.wakeClaude) this.wakeClaude();
     else if (!this.idlePingSent) {
       this.idlePingSent = true;
@@ -44089,6 +44091,12 @@ var Store = class _Store {
   apply(event) {
     let needsClaude = true;
     const finding2 = (id) => this.state.findings.find((f) => f.id === id);
+    const resolve2 = (id, status) => {
+      const f = finding2(id);
+      if (!f) return false;
+      f.status = status;
+      return !this.state.findings.some((x) => x.repo === f.repo && isUnresolved(x));
+    };
     this.update((s) => {
       switch (event.type) {
         case "chat":
@@ -44116,12 +44124,10 @@ var Store = class _Store {
           s.phase = "reviewing";
           s.reviewers = [];
           break;
-        case "finding_fixed_manually": {
-          const f = finding2(event.id);
-          if (f) f.status = "fixed";
-          needsClaude = !s.findings.some(isUnresolved);
+        case "finding_fixed_manually":
+        case "fix_approved":
+          needsClaude = resolve2(event.id, "fixed");
           break;
-        }
         case "end_workflow":
           s.phase = "ended";
           break;
@@ -44130,20 +44136,12 @@ var Store = class _Store {
           if (file2) file2.status = "approved";
           break;
         }
-        case "finding_dismiss": {
-          const f = finding2(event.id);
-          if (f) f.status = "dismissed";
-          needsClaude = !s.findings.some(isUnresolved);
+        case "finding_dismiss":
+          needsClaude = resolve2(event.id, "dismissed");
           break;
-        }
         case "finding_fix": {
           const f = finding2(event.id);
           if (f) f.status = "fixing";
-          break;
-        }
-        case "fix_approved": {
-          const f = finding2(event.id);
-          if (f) f.status = "fixed";
           break;
         }
         case "fix_rejected": {
@@ -44173,6 +44171,7 @@ var Store = class _Store {
   /** Everything the user did since Claude last looked, without waiting. */
   drain() {
     this.idlePingSent = false;
+    if (this.state.queued.count) this.update((s) => s.queued = { count: 0, since: null });
     return this.pendingEvents.splice(0);
   }
   /** Blocks until the user does something that needs Claude, or the wait times out. */
@@ -44239,6 +44238,18 @@ var Workflow = class {
   }
   unresolvedFindingIds() {
     return this.run.state.findings.filter(isUnresolved).map((f) => f.id);
+  }
+  inReview() {
+    return this.run.state.phase === "review";
+  }
+  /** Repos whose last open finding was resolved by these events: each needs its checks run once. */
+  reposCleared(events) {
+    const { findings } = this.run.state;
+    const resolved = events.flatMap(
+      (e) => e.type === "fix_approved" || e.type === "finding_dismiss" || e.type === "finding_fixed_manually" ? [e.id] : []
+    );
+    const repos = new Set(findings.filter((f) => resolved.includes(f.id)).map((f) => f.repo));
+    return [...repos].filter((repo2) => !findings.some((f) => f.repo === repo2 && isUnresolved(f)));
   }
   status(message, phase) {
     this.run.update((s) => {
@@ -44411,9 +44422,11 @@ var NEXT_STEP = {
   file_feedback: "Rework that file, then call workflow_file_ready again.",
   file_approved: "Move to the next file in the plan. Don't run tests, builds or agents between files: once every file is approved, run the checks once (workflow_status with phase 'checking'), then workflow_code_ready with the results.",
   start_review: "Call workflow_reviewers with every reviewer agent as 'running', launch them, update each one's status and finding count as it finishes, then call workflow_review with the merged findings.",
-  finding_fix: "Fix that finding, then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
+  finding_fix: "Fix that finding (edit only; don't run checks), then call workflow_fix_ready with its id. It returns at once; work through every queued finding_fix the same way, then call workflow_wait.",
   fix_rejected: "Rework the fix (see the note), then call workflow_fix_ready again.",
-  finding_fixed_manually: "The user fixed this finding themselves in the editor. Re-read the file before touching it again; nothing else to do unless it's still wrong.",
+  finding_fixed_manually: "The user fixed this finding themselves in the editor. Re-read the file before touching it again. Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
+  fix_approved: "Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
+  finding_dismiss: "Don't run tests, builds or linters per finding. For each repo in `reposCleared` (its last finding is now resolved), run that repo's checks once; if they fail, fix it and say so with workflow_reply. When `unresolved` is empty, propose the commit history.",
   history_changed: "Revise the proposal and call workflow_propose_history again.",
   history_edited: "The user edited PR titles, descriptions or commit messages. Treat their version as final; don't overwrite it.",
   publish: "Create the branches and commits exactly as in this event's `prs` (it includes the user's edits). Then, by `mode`: 'local' stop there (don't push); 'push' push the branches; 'pr' push and open the PRs. Then call workflow_published with the mode.",
@@ -44504,7 +44517,7 @@ var answer = external_exports.object({ optionId: external_exports.string().optio
 
 // server/src/mcp/tools.ts
 function registerTools(mcp2, workflow) {
-  const withUnresolved = () => ({ unresolved: workflow.unresolvedFindingIds() });
+  const reviewResult = (events) => eventsResult(events, { unresolved: workflow.unresolvedFindingIds(), reposCleared: workflow.reposCleared(events) });
   mcp2.registerTool(
     "workflow_memory",
     { description: "Saved repos, style guides and reviewers from previous /workflow runs. Use in step 1 to offer quick picks." },
@@ -44594,7 +44607,7 @@ function registerTools(mcp2, workflow) {
       description: "Show pre-review findings inline in the code (numbered, GitHub-style, with Fix/Dismiss/Ask) and wait. Deduplicate findings from all reviewers first. Call with an empty list to add none. Returns when the user acts; when no finding is unresolved, propose the commit history.",
       inputSchema: { findings: external_exports.array(finding) }
     },
-    async ({ findings }) => eventsResult(await workflow.review(findings), withUnresolved())
+    async ({ findings }) => reviewResult(await workflow.review(findings))
   );
   mcp2.registerTool(
     "workflow_reviewers",
@@ -44610,7 +44623,7 @@ function registerTools(mcp2, workflow) {
       description: "A fix for a finding is in the working tree; the user sees it as a diff to approve. Returns at once with any pending events (e.g. more fixes the user queued), so keep fixing; call workflow_wait when nothing is left.",
       inputSchema: { id: external_exports.number().int() }
     },
-    async ({ id }) => eventsResult(workflow.fixReady(id), withUnresolved())
+    async ({ id }) => reviewResult(workflow.fixReady(id))
   );
   mcp2.registerTool(
     "workflow_propose_history",
@@ -44657,11 +44670,10 @@ function registerTools(mcp2, workflow) {
     },
     async ({ text: message, about, setAnswers }) => eventsResult(workflow.reply(message, about, setAnswers))
   );
-  mcp2.registerTool(
-    "workflow_wait",
-    { description: "Wait for the user's next action in the cockpit." },
-    async () => eventsResult(await workflow.wait())
-  );
+  mcp2.registerTool("workflow_wait", { description: "Wait for the user's next action in the cockpit." }, async () => {
+    const events = await workflow.wait();
+    return workflow.inReview() ? reviewResult(events) : eventsResult(events);
+  });
 }
 
 // server/src/index.ts
