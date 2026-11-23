@@ -138,6 +138,21 @@ describe("Store v0.3 review flow", () => {
     expect(s.state.queued).toEqual({ count: 0, since: null });
   });
 
+  it("holds Claude while paused and hands over queued actions on resume", async () => {
+    const s = new Store(ctx, []);
+    s.push({ type: "pause" });
+    expect(s.state.paused).toBe(true);
+    let resumed = false;
+    void s.untilResumed().then(() => (resumed = true));
+    const waiting = s.waitForUser();
+    s.push({ type: "chat", text: "hi" });
+    await Promise.resolve();
+    expect(s.state.claudeWaiting).toBe(true); // a paused workflow doesn't wake Claude
+    s.push({ type: "resume" });
+    expect((await waiting).map((e) => e.type)).toEqual(["chat"]);
+    expect(resumed).toBe(true);
+  });
+
   it("remembers how the user chose to finish", () => {
     const s = new Store(ctx, []);
     s.state.history = { prs: [], reviewers: [] };

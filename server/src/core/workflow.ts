@@ -3,6 +3,7 @@ import {
   isUnresolved,
   type Answer,
   type FileEntry,
+  type KeySection,
   type Finding,
   type History,
   type Phase,
@@ -94,6 +95,15 @@ export class Workflow {
     return this.run.state.findings.filter(isUnresolved).map((f) => f.id);
   }
 
+  /** Holds a tool call while the user has the workflow paused; false if it's still paused. */
+  untilResumed() {
+    return this.run.untilResumed();
+  }
+
+  paused() {
+    return this.run.state.paused;
+  }
+
   inReview() {
     return this.run.state.phase === "review";
   }
@@ -149,18 +159,26 @@ export class Workflow {
     return this.run.drain();
   }
 
-  /** Shows the file's diff against HEAD; the UI replays it and waits for approval. */
-  fileReady(repo: string, path: string) {
+  /**
+   * Shows the file's diff against HEAD. Waits for the user's approval, unless
+   * their code-approval choice skips this file: then it's approved at once.
+   */
+  async fileReady(repo: string, path: string, key = false, keySections: KeySection[] = []) {
     const { head, working } = this.read(repo, path);
+    const { codeApproval } = this.run.state;
+    const needsApproval = codeApproval === "every" || (codeApproval === "key" && key);
     this.run.update((s) => {
       s.phase = "coding";
       const file = this.fileEntry(s, repo, path, "writing");
       file.before = head;
       file.after = working;
-      file.status = "awaiting_approval";
+      file.key = key;
+      file.keySections = keySections;
+      file.status = needsApproval ? "awaiting_approval" : "approved";
+      file.autoApproved = !needsApproval;
       file.revision += 1;
     });
-    return this.run.waitForUser();
+    return { autoApproved: !needsApproval, events: needsApproval ? await this.run.waitForUser() : this.run.drain() };
   }
 
   codeReady(markdown: string) {

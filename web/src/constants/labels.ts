@@ -1,4 +1,4 @@
-import type { FileEntry, Finding, PublishMode, RepoRef, Slide } from "../../../shared/protocol";
+import type { CodeApproval, FileEntry, Finding, PublishMode, RepoRef, Slide } from "../../../shared/protocol";
 
 export const SLIDE_KIND_LABEL: Record<Slide["kind"], string> = {
   overview: "Overview",
@@ -10,6 +10,12 @@ export const SLIDE_KIND_LABEL: Record<Slide["kind"], string> = {
 };
 
 export const FILE_STATUS_ICON: Record<FileEntry["status"], string> = { pending: "○", writing: "◐", awaiting_approval: "●", approved: "✓" };
+
+export const CODE_APPROVAL: Record<CodeApproval, { label: string; hint: string }> = {
+  every: { label: "Every file", hint: "Watch and approve each file as Claude writes it." },
+  key: { label: "Key files only", hint: "Approve the files that matter; the rest are approved as they're written." },
+  auto: { label: "Auto-approve", hint: "Claude writes everything without stopping. Key spots are still marked." },
+};
 
 export const FINDING_STATUS_ICON: Record<Finding["status"], string> = { open: "", fixing: "◐", fixed: "✓", dismissed: "–" };
 

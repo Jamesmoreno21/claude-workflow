@@ -31,7 +31,7 @@ describe("Workflow", () => {
     expect(file.after).toBe("export const a = 2;\n");
 
     wf.handleEvent({ type: "file_approved", repo: "api", path: "a.ts" });
-    expect(await waiting).toEqual([{ type: "file_approved", repo: "api", path: "a.ts" }]);
+    expect((await waiting).events).toEqual([{ type: "file_approved", repo: "api", path: "a.ts" }]);
     expect(wf.store!.state.files[0].status).toBe("approved");
   });
 
@@ -57,8 +57,20 @@ describe("Workflow", () => {
     expect(wf.store!.state.findings[0].fix).toEqual({ before: "export const a = 1;\n", after: "export const a = 3;\n", ready: true });
   });
 
-  it("rejects unknown repos with the list of known ones", () => {
-    expect(() => wf.fileReady("web", "x.ts")).toThrow(/Known: api/);
+  it("rejects unknown repos with the list of known ones", async () => {
+    await expect(wf.fileReady("web", "x.ts")).rejects.toThrow(/Known: api/);
+  });
+
+  it("with 'key' approval, waits only on key files and approves the rest at once", async () => {
+    wf.handleEvent({ type: "plan_approved", approval: "key" });
+    writeFileSync(join(repo, "a.ts"), "export const a = 2;\n");
+    const plain = await wf.fileReady("api", "a.ts");
+    expect(plain.autoApproved).toBe(true);
+    expect(wf.store!.state.files[0]).toMatchObject({ status: "approved", autoApproved: true });
+
+    writeFileSync(join(repo, "b.ts"), "secret\n");
+    void wf.fileReady("api", "b.ts", true, [{ line: 1, note: "auth" }]);
+    expect(wf.store!.state.files[1]).toMatchObject({ status: "awaiting_approval", key: true, keySections: [{ line: 1, note: "auth" }] });
   });
 
   it("counts added lines in untracked files without touching the index", () => {

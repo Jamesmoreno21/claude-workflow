@@ -79,6 +79,11 @@ function TaskFiles({
               <button key={fileKey(f)} className={`tree-file ${f.status} ${sameFile(f, current) ? "on" : ""}`} onClick={() => onOpen(f)}>
                 <span className="st">{FILE_STATUS_ICON[f.status]}</span>
                 <span className="nm">{f.path}</span>
+                {f.key && (
+                  <span className="key-tag" title="Key file: worth a careful look">
+                    ★
+                  </span>
+                )}
                 {showLayers && f.layer && <span className="layer-tag">{f.layer}</span>}
               </button>
             ))}
@@ -225,7 +230,7 @@ export function WorkspaceScreen() {
       selection,
     });
 
-  // ---- Review zones ----
+  // ---- Zones: findings in review, Claude's key sections while coding ----
   const zones: Zone[] = review
     ? findings
         .filter((f) => sameFile(f, doc) && (!fixShown || f === fixShown))
@@ -234,7 +239,17 @@ export function WorkspaceScreen() {
           afterLine: f.line,
           node: <FindingBox finding={f} selected={f === finding} onSelect={() => setFindingId(f.id)} />,
         }))
-    : [];
+    : (!replaying || replay.done) && taskFile?.keySections
+      ? taskFile.keySections.map((k) => ({
+          key: `key-${k.line}`,
+          afterLine: Math.max(0, k.line - 1),
+          node: (
+            <div className="key-note">
+              <b>★ Read this</b> {k.note}
+            </div>
+          ),
+        }))
+      : [];
 
   // ---- Layout state ----
   const [tab, setTab] = useState<SideTab>(review ? "findings" : "task");
@@ -391,7 +406,7 @@ export function WorkspaceScreen() {
               sideBySide={sideBySide}
               zones={zones}
               revealLine={typed?.cursorLine ?? (review ? finding?.line : undefined)}
-              foldUnchanged={!review}
+              foldUnchanged={zones.length === 0}
               onDirtyChange={(isDirty) => setDirtyDoc(isDirty ? docKey : null)}
               onSave={save}
               onAsk={askAboutSelection}
@@ -419,9 +434,10 @@ export function WorkspaceScreen() {
               onChange={(e) => setFeedback(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && feedback.trim()) {
+                  // Auto-approved files are reworked in between Claude's other files: no need to wait on it.
                   send(
                     { type: "file_feedback", repo: taskFile.repo, path: taskFile.path, text: feedback.trim() },
-                    { handoff: "Claude is reworking the file…" },
+                    taskFile.autoApproved ? undefined : { handoff: "Claude is reworking the file…" },
                   );
                   setFeedback("");
                 }
@@ -429,7 +445,9 @@ export function WorkspaceScreen() {
               }}
             />
             {taskFile.status === "approved" ? (
-              <span className="ok-badge">✓ Approved</span>
+              <span className="ok-badge" title={taskFile.autoApproved ? "Approved by your code-approval choice" : undefined}>
+                {taskFile.autoApproved ? "✓ Auto-approved" : "✓ Approved"}
+              </span>
             ) : (
               <button
                 className="primary"

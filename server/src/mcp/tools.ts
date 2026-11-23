@@ -4,11 +4,26 @@ import type { UserEvent } from "../../../shared/protocol.js";
 import { COMMIT_LINES_TARGET, PR_LINES_MAX, PR_LINES_TARGET } from "../../../shared/constants.js";
 import type { Workflow } from "../core/workflow.js";
 import { loadMemory } from "../services/memory.js";
-import { eventsResult, text } from "./results.js";
+import { eventsResult, text, type ToolResult } from "./results.js";
 import { answer, finding, outcome, plannedPr, pr, question, repo, reviewer, slide } from "./schemas.js";
 
+const AUTO_APPROVED = "Auto-approved by the user's code-approval choice. Go straight to the next file (or the checks if it was the last).";
+const UNGATED = ["workflow_end", "workflow_memory"];
+const PAUSED =
+  "The user paused the workflow in the cockpit. Do nothing else: no other tools, no reading or writing files. Call this same tool again with the same input to keep waiting for them to resume.";
+
 /** Registers every workflow_* tool. Descriptions are written for Claude. */
-export function registerTools(mcp: McpServer, workflow: Workflow) {
+export function registerTools(server: McpServer, workflow: Workflow) {
+  // While the user has the workflow paused, every call waits here, so Claude
+  // stops at its next step and spends nothing until they resume.
+  const mcp = {
+    registerTool: ((name: string, config: object, handler: (...args: unknown[]) => Promise<ToolResult>) =>
+      server.registerTool(name, config, (async (...args: unknown[]) =>
+        UNGATED.includes(name) || (await workflow.untilResumed())
+          ? handler(...args)
+          : text(PAUSED)) as never)) as unknown as McpServer["registerTool"],
+  };
+
   /** Review results also say what's left open and which repos just finished review. */
   const reviewResult = (events: UserEvent[]) =>
     eventsResult(events, { unresolved: workflow.unresolvedFindingIds(), reposCleared: workflow.reposCleared(events) });
@@ -98,10 +113,29 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
     "workflow_file_ready",
     {
       description:
-        "The file is written. The UI replays the diff line by line and waits for the user to approve it or give feedback. Do not start the next file before approval.",
-      inputSchema: { repo: z.string(), path: z.string() },
+        "The file is written. The UI replays the diff and waits for the user to approve it or give feedback, unless their code-approval choice skips it (`autoApproved` in the result): then go straight to the next file. Do not start the next file before approval.",
+      inputSchema: {
+        repo: z.string(),
+        path: z.string(),
+        key: z
+          .boolean()
+          .optional()
+          .describe("True for files worth a human look: core logic, security, data model, public API, tricky edge cases"),
+        keySections: z
+          .array(
+            z.object({
+              line: z.number().int().min(1).describe("1-based line in the new file"),
+              note: z.string().describe("Why to read this"),
+            }),
+          )
+          .optional()
+          .describe("The few spots in this file the user should read closely"),
+      },
     },
-    async ({ repo, path }) => eventsResult(await workflow.fileReady(repo, path)),
+    async ({ repo, path, key, keySections }) => {
+      const { autoApproved, events } = await workflow.fileReady(repo, path, key, keySections);
+      return autoApproved ? eventsResult(events, { autoApproved }, AUTO_APPROVED) : eventsResult(events);
+    },
   );
 
   mcp.registerTool(
@@ -197,6 +231,7 @@ export function registerTools(mcp: McpServer, workflow: Workflow) {
 
   mcp.registerTool("workflow_wait", { description: "Wait for the user's next action in the cockpit." }, async () => {
     const events = await workflow.wait();
+    if (workflow.paused()) return text(PAUSED);
     return workflow.inReview() ? reviewResult(events) : eventsResult(events);
   });
 }

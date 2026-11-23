@@ -44,6 +44,10 @@ test("a task goes from validation to published PRs", async ({ page }) => {
     await expect(page.locator(".msg.claude")).toContainText("Why fail open?");
 
     await page.getByRole("button", { name: "Approve plan, start coding" }).click();
+    // The pre-coding question: approve only key files.
+    await expect(page.getByRole("dialog", { name: /review the code/ })).toBeVisible();
+    await page.keyboard.press("2");
+    await page.keyboard.press("Enter");
   });
 
   await test.step("coding: Monaco workspace, replay, edit and save, ask about a selection, approve", async () => {
@@ -75,13 +79,13 @@ test("a task goes from validation to published PRs", async ({ page }) => {
     await expect(page.locator(".msg.user .selection-snippet")).toBeVisible();
 
     await page.locator(".why").click();
+    await expect(page.locator(".key-note").first()).toContainText("Fails open");
     await page.getByRole("button", { name: /Approve file/ }).click();
 
-    // login.ts
-    await expect(page.locator(".tab.on")).toContainText("login.ts");
-    await page.locator(".why").click();
-    await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: /Approve file/ }).click();
+    // login.ts isn't a key file, so it's approved as soon as it's written.
+    await page.getByRole("button", { name: "Pause Claude" }).click();
+    await expect(page.locator(".turn")).toHaveText("Paused");
+    await page.getByRole("button", { name: "Resume Claude" }).click();
   });
 
   await test.step("pre-review inside the editor: fix one, fix one by hand, dismiss one", async () => {

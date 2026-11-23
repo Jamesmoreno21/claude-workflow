@@ -244,6 +244,17 @@ kbd {
   color: var(--red);
   background: var(--red-soft);
 }
+.turn.paused {
+  color: var(--amber);
+  background: rgba(224, 175, 104, 0.12);
+}
+.turn.paused::before {
+  border-radius: 1px;
+}
+.pause.on {
+  color: var(--amber);
+  border-color: var(--amber);
+}
 .queued {
   white-space: nowrap;
   font-size: 12px;
@@ -476,6 +487,40 @@ main {
   z-index: 40;
   display: flex;
   justify-content: flex-end;
+}
+.scrim.center {
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+.dialog {
+  width: min(560px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  animation: rise 0.15s ease-out;
+}
+.dialog h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.dialog footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.dialog footer .check {
+  flex: 1;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
 }
 .drawer {
   width: min(520px, 100%);
@@ -2604,4 +2649,24 @@ button.diagram:hover .diagram-hint {
 }
 .st.fix-ready {
   color: var(--green);
+}
+
+/* ---------- Key files and sections ---------- */
+.key-tag {
+  color: var(--amber);
+  font-size: 12px;
+}
+.key-note {
+  margin: 4px 12px 4px 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--amber);
+  border-radius: 4px;
+  background: rgba(229, 180, 83, 0.08);
+  font: 13px/1.5 var(--sans);
+  color: var(--text);
+}
+.key-note b {
+  color: var(--amber);
+  margin-right: 6px;
+  font-weight: 600;
 }

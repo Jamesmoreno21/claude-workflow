@@ -12,8 +12,10 @@ export function ViewZone({ editor, afterLine, children }: { editor: monaco.edito
     const measure = () => (domNode.firstElementChild as HTMLElement | null)?.offsetHeight ?? 0;
 
     // Zones belong to a model: add once one is attached, and again whenever it's swapped.
+    // A zone placed past the model's last line stays hidden, so wait for the content to get there.
     const add = () => {
-      if (!editor.getModel()) return;
+      const model = editor.getModel();
+      if (!model || model.getLineCount() < afterLine) return;
       zone.heightInPx = (measure() || 112) + 8;
       editor.changeViewZones((zones) => {
         if (zoneId) zones.removeZone(zoneId);
@@ -22,6 +24,7 @@ export function ViewZone({ editor, afterLine, children }: { editor: monaco.edito
     };
     add();
     const modelChange = editor.onDidChangeModel(add);
+    const contentChange = editor.onDidChangeModelContent(() => zoneId === null && add());
 
     // Keep the gap as tall as the content, which grows when a fix or reply appears.
     const observer = new ResizeObserver(() => {
@@ -34,6 +37,7 @@ export function ViewZone({ editor, afterLine, children }: { editor: monaco.edito
 
     return () => {
       modelChange.dispose();
+      contentChange.dispose();
       observer.disconnect();
       editor.changeViewZones((zones) => zoneId && zones.removeZone(zoneId));
     };

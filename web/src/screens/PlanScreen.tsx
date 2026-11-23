@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import type { Slide } from "../../../shared/protocol";
+import type { CodeApproval, Slide } from "../../../shared/protocol";
 import { useApp, useFocus } from "../app/AppContext";
 import { Diagram } from "../components/Diagram";
 import { Markdown } from "../components/Markdown";
-import { SLIDE_KIND_LABEL } from "../constants/labels";
+import { CodeApprovalDialog } from "../components/CodeApprovalDialog";
+import { usePreference } from "../config/settings";
+import { CODE_APPROVAL, SLIDE_KIND_LABEL } from "../constants/labels";
 import { SLIDE_ADVANCE_MS } from "../constants/ui";
 import { useHotkeys } from "../hooks/useHotkeys";
 import { prSizeClass } from "../lib/size";
@@ -108,7 +110,18 @@ export function PlanScreen() {
   // Ready the slide on screen before Narrate is pressed.
   useEffect(() => prefetchNarration(slide.narration), [slide.narration]);
 
+  // How to approve the code: asked here, or the saved default.
+  const [askApproval] = usePreference("askCodeApproval");
+  const [defaultApproval] = usePreference("codeApproval");
+  const [choosing, setChoosing] = useState(false);
+  const startCoding = (approval: CodeApproval) => {
+    setChoosing(false);
+    setPlaying(false);
+    send({ type: "plan_approved", approval }, { handoff: "Claude is starting on the first file…" });
+  };
+
   useHotkeys((e) => {
+    if (choosing) return false;
     if (e.key === "ArrowRight") goTo(index + 1);
     else if (e.key === "ArrowLeft") goTo(index - 1);
     else if (e.key.toLowerCase() === "p" && !e.metaKey && !e.ctrlKey) setPlaying(!playing);
@@ -150,10 +163,15 @@ export function PlanScreen() {
             </button>
           ))}
         </div>
-        <button className="primary" onClick={() => send({ type: "plan_approved" }, { handoff: "Claude is starting on the first file…" })}>
+        <button
+          className="primary"
+          onClick={() => (askApproval ? setChoosing(true) : startCoding(defaultApproval))}
+          title={askApproval ? undefined : `Code approval: ${CODE_APPROVAL[defaultApproval].label} (change it in ⚙)`}
+        >
           Approve plan, start coding
         </button>
       </footer>
+      {choosing && <CodeApprovalDialog onStart={startCoding} onClose={() => setChoosing(false)} />}
     </div>
   );
 }

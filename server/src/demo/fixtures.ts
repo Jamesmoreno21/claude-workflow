@@ -1,4 +1,4 @@
-import type { Outcome, Plan, PublishMode, Question, Reviewer, TaskContext } from "../../../shared/protocol.js";
+import type { KeySection, Outcome, Plan, PublishMode, Question, Reviewer, TaskContext } from "../../../shared/protocol.js";
 import type { FileStart, NewFinding, ProposedHistory } from "../core/workflow.js";
 
 // A small, realistic task ("lock accounts after failed logins") used by the
@@ -229,7 +229,9 @@ login.post("/login", async (req, res) => {
 });
 `;
 
-export const FILES: (FileStart & { content: string })[] = [
+const lineOf = (content: string, text: string) => content.split("\n").findIndex((line) => line.includes(text)) + 1;
+
+export const FILES: (FileStart & { content: string; key?: boolean; keySections?: KeySection[] })[] = [
   {
     repo: REPO,
     path: "src/auth/limiter.ts",
@@ -237,6 +239,11 @@ export const FILES: (FileStart & { content: string })[] = [
     intent: "New Redis-backed limiter with check / fail / reset",
     layer: "Service",
     content: LIMITER,
+    key: true,
+    keySections: [
+      { line: lineOf(LIMITER, "catch (err)"), note: "Fails open when Redis is down, as agreed: logins keep working." },
+      { line: lineOf(LIMITER, "export async function recordFailure"), note: "The lockout escalation: 1, 5, 15, then 60 minutes." },
+    ],
   },
   {
     repo: REPO,

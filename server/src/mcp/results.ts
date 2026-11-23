@@ -4,7 +4,8 @@ import type { UserEvent } from "../../../shared/protocol.js";
 const NEXT_STEP: Partial<Record<UserEvent["type"], string>> = {
   chat: "Answer with workflow_reply (short, spoken-friendly), act on it if it asks for a change, then call workflow_wait.",
   answers: "If every question is answered, move on (technical questions, then the plan).",
-  plan_approved: "Plan approved. Start coding: workflow_begin_file for the first file.",
+  plan_approved:
+    "Plan approved. Start coding: workflow_begin_file for the first file. The event's `approval` is how the user reviews code: 'every' file, only 'key' files (mark them with `key` in workflow_file_ready), or 'auto' (none); with 'key' or 'auto', still pass `key` and `keySections` so they know where to look.",
   file_feedback: "Rework that file, then call workflow_file_ready again.",
   file_approved:
     "Move to the next file in the plan. Don't run tests, builds or agents between files: once every file is approved, run the checks once (workflow_status with phase 'checking'), then workflow_code_ready with the results.",
@@ -32,9 +33,11 @@ const NEXT_STEP: Partial<Record<UserEvent["type"], string>> = {
 const STILL_WAITING = "The user is still working. Call workflow_wait to keep waiting.";
 
 export const text = (message: string) => ({ content: [{ type: "text" as const, text: message }] });
+export type ToolResult = ReturnType<typeof text>;
 
 /** The user's events plus the next steps they call for. */
-export function eventsResult(events: UserEvent[], extra?: Record<string, unknown>) {
-  const next = events.length ? [...new Set(events.map((e) => NEXT_STEP[e.type]).filter(Boolean))] : [STILL_WAITING];
+export function eventsResult(events: UserEvent[], extra?: Record<string, unknown>, nextFirst?: string) {
+  const hints = [...new Set(events.map((e) => NEXT_STEP[e.type]).filter(Boolean))];
+  const next = nextFirst ? [nextFirst, ...hints] : hints.length || events.length ? hints : [STILL_WAITING];
   return text(JSON.stringify({ events, next, ...extra }, null, 2));
 }

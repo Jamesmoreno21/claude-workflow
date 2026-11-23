@@ -4,6 +4,16 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Added
+
+- **Pause Claude** in the header: Claude stops at its next step and uses no tokens until you resume. Your actions while paused are kept for it.
+- Choose how to approve code when you approve the plan: every file, key files only, or auto-approve. Set the default, or turn the question off, in ⚙.
+- Claude marks key files (★) and the spots in them worth reading closely, shown as notes in the editor.
+
+### Changed
+
+- Claude waits up to 25 minutes per call instead of 8, so it wakes up (and spends tokens) about three times less often while you read.
+
 ## [0.4.1] - 2026-11-23
 
 ### Fixed

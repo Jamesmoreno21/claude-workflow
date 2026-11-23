@@ -16,6 +16,7 @@ export class Store {
   private pendingEvents: UserEvent[] = [];
   private wakeClaude: (() => void) | null = null;
   private idlePingSent = false;
+  private resumeWaiters: (() => void)[] = [];
   /** Called once when the user acts while Claude isn't waiting (e.g. to ping its session). */
   onUserActsWhileClaudeIdle: (() => void) | null = null;
 
@@ -44,6 +45,8 @@ export class Store {
       claudeWaiting: false,
       waitCount: 0,
       queued: { count: 0, since: null },
+      paused: false,
+      codeApproval: "every",
       memory: { reviewers },
     };
   }
@@ -56,6 +59,7 @@ export class Store {
     this.pendingEvents = [];
     this.idlePingSent = false;
     this.wakeClaude?.();
+    this.resumeWaiters.splice(0).forEach((resume) => resume());
     this.state = Store.freshState(context, reviewers);
     for (const listener of this.listeners) listener(this.state);
     saveSession(this.state);
@@ -75,15 +79,37 @@ export class Store {
 
   /** Applies an event from the UI and queues it for Claude. */
   push(event: UserEvent) {
+    if (event.type === "pause" || event.type === "resume") return this.setPaused(event.type === "pause");
     const needsClaude = this.apply(event);
     this.pendingEvents.push(event);
     if (!needsClaude) return;
     this.update((s) => (s.queued = { count: s.queued.count + 1, since: s.queued.since ?? Date.now() }));
+    if (this.state.paused) return; // kept for when the user resumes
     if (this.wakeClaude) this.wakeClaude();
     else if (!this.idlePingSent) {
       this.idlePingSent = true;
       this.onUserActsWhileClaudeIdle?.();
     }
+  }
+
+  /** Pausing holds Claude at its next workflow call; resuming lets it go and hands it anything queued. */
+  private setPaused(paused: boolean) {
+    this.update((s) => (s.paused = paused));
+    if (paused) return;
+    this.resumeWaiters.splice(0).forEach((resume) => resume());
+    if (this.state.queued.count) this.wakeClaude?.();
+  }
+
+  /** Resolves true at once, or when the user resumes; false if still paused after the wait timeout. */
+  untilResumed(): Promise<boolean> {
+    if (!this.state.paused) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), settings.waitMs);
+      this.resumeWaiters.push(() => {
+        clearTimeout(timer);
+        resolve(true);
+      });
+    });
   }
 
   /** Updates the state for an event; returns whether Claude must react now. */
@@ -132,6 +158,9 @@ export class Store {
           break;
         case "end_workflow":
           s.phase = "ended";
+          break;
+        case "plan_approved":
+          s.codeApproval = event.approval;
           break;
         case "file_approved": {
           const file = s.files.find((f) => f.repo === event.repo && f.path === event.path);
@@ -195,6 +224,7 @@ export class Store {
     });
     this.wakeClaude = null;
     this.update((s) => (s.claudeWaiting = false));
-    return this.drain();
+    // Paused meanwhile: keep the events for when the user resumes.
+    return this.state.paused ? [] : this.drain();
   }
 }

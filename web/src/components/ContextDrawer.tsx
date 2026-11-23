@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { REPO_ROLES, type RepoRef, type TaskContext } from "../../../shared/protocol";
+import { CODE_APPROVALS, REPO_ROLES, type RepoRef, type TaskContext } from "../../../shared/protocol";
+import { usePreference } from "../config/settings";
 import { useApp } from "../app/AppContext";
-import { REPO_ROLE_LABEL } from "../constants/labels";
+import { CODE_APPROVAL, REPO_ROLE_LABEL } from "../constants/labels";
 import { inspectRepo } from "../services/api";
 
 function RoleToggle({ role, onChange }: { role: RepoRef["role"]; onChange(role: RepoRef["role"]): void }) {
@@ -12,6 +13,28 @@ function RoleToggle({ role, onChange }: { role: RepoRef["role"]; onChange(role: 
           {REPO_ROLE_LABEL[r]}
         </button>
       ))}
+    </div>
+  );
+}
+
+/** Browser preferences for the coding step; saved as soon as they change. */
+function CodingPreferences() {
+  const [approval, setApproval] = usePreference("codeApproval");
+  const [ask, setAsk] = usePreference("askCodeApproval");
+  return (
+    <div className="field">
+      <span>Code approval</span>
+      <div className="seg">
+        {CODE_APPROVALS.map((id) => (
+          <button key={id} className={approval === id ? "on" : ""} onClick={() => setApproval(id)} title={CODE_APPROVAL[id].hint}>
+            {CODE_APPROVAL[id].label}
+          </button>
+        ))}
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={ask} onChange={(e) => setAsk(e.target.checked)} />
+        Ask before coding starts (this is the default answer)
+      </label>
     </div>
   );
 }
@@ -135,6 +158,8 @@ export function ContextDrawer({ onClose }: { onClose: () => void }) {
           Style guide
           <textarea rows={4} value={context.styleGuide ?? ""} onChange={(e) => update({ styleGuide: e.target.value })} />
         </label>
+
+        <CodingPreferences />
 
         <div className="drawer-foot">
           <button

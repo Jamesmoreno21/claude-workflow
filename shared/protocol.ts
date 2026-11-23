@@ -122,6 +122,16 @@ export interface Plan {
 
 /* ---------- Coding ---------- */
 
+/** How much of the code the user approves file by file. */
+export const CODE_APPROVALS = ["every", "key", "auto"] as const;
+export type CodeApproval = (typeof CODE_APPROVALS)[number];
+
+export interface KeySection {
+  /** 1-based line in the new version of the file. */
+  line: number;
+  note: string;
+}
+
 export interface FileEntry {
   repo: string;
   path: string;
@@ -131,6 +141,12 @@ export interface FileEntry {
   /** Architecture layer, one of Plan.layers. */
   layer?: string;
   status: "pending" | "writing" | "awaiting_approval" | "approved";
+  /** Approved without the user, by their code-approval choice; they can still reopen it with feedback. */
+  autoApproved?: boolean;
+  /** Core logic, security, data model or public API: worth a human look. */
+  key?: boolean;
+  /** Parts of the file the user should read, marked in the editor. */
+  keySections?: KeySection[];
   before?: string;
   after?: string;
   /** Bumps every time Claude rewrites the file, so the UI replays it. */
@@ -279,6 +295,10 @@ export interface WorkflowState {
   waitCount: number;
   /** Actions the user took that Claude hasn't picked up yet, and since when. */
   queued: { count: number; since: number | null };
+  /** The user paused the workflow: Claude is held at its next step and uses no tokens. */
+  paused: boolean;
+  /** Chosen with the plan's approval: every file, only key files, or none. */
+  codeApproval: CodeApproval;
   memory: { reviewers: string[] };
 }
 
@@ -288,7 +308,9 @@ export type UserEvent =
   | { type: "answers"; answers: Record<string, Answer> }
   | { type: "chat"; text: string; via: "voice" | "text"; about?: string; selection?: CodeSelection }
   | { type: "file_edited"; repo: string; path: string }
-  | { type: "plan_approved" }
+  | { type: "plan_approved"; approval: CodeApproval }
+  | { type: "pause" }
+  | { type: "resume" }
   | { type: "file_approved"; repo: string; path: string }
   | { type: "file_feedback"; repo: string; path: string; text: string }
   | { type: "start_review" }

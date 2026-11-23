@@ -33,9 +33,34 @@ function TurnIndicator({ connected }: { connected: boolean }) {
   if (!connected) return <span className="turn off">Disconnected</span>;
   return (
     <>
-      {state.claudeWaiting ? <span className="turn you">Your turn</span> : <span className="turn claude">Claude is working</span>}
+      {state.paused ? (
+        <span className="turn paused">Paused</span>
+      ) : state.claudeWaiting ? (
+        <span className="turn you">Your turn</span>
+      ) : (
+        <span className="turn claude">Claude is working</span>
+      )}
       <QueuedNotice />
     </>
+  );
+}
+
+/** Holds Claude at its next step, so it uses no tokens while the user takes their time. */
+function PauseButton() {
+  const { state, send } = useApp();
+  if (FINISHED_PHASES.includes(state.phase)) return null;
+  return state.paused ? (
+    <button className="ghost sm pause on" onClick={() => send({ type: "resume" })} title="Let Claude continue">
+      ▶ Resume Claude
+    </button>
+  ) : (
+    <button
+      className="ghost sm pause"
+      onClick={() => send({ type: "pause" })}
+      title="Claude stops at its next step and uses no tokens until you resume"
+    >
+      ❚❚ Pause Claude
+    </button>
   );
 }
 
@@ -85,6 +110,7 @@ export function Header({
 
       <div className="tools">
         <TurnIndicator connected={connected} />
+        <PauseButton />
         {speechRecognitionSupported && (
           <kbd title={`Talk to Claude: ${MIC_TOGGLE_LABEL} to start and send, or hold Space`}>{MIC_TOGGLE_LABEL} talk</kbd>
         )}

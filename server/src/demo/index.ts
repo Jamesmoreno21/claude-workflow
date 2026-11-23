@@ -90,7 +90,8 @@ for (const { content, ...file } of demo.FILES) {
   workflow.beginFile(file);
   await pause(1500);
   writeFile(file.path, content);
-  await until(workflow.fileReady(file.repo, file.path), (e) => e.type === "file_approved" && e.path === file.path);
+  const ready = await workflow.fileReady(file.repo, file.path, file.key, file.keySections);
+  if (!ready.autoApproved) await until(Promise.resolve(ready.events), (e) => e.type === "file_approved" && e.path === file.path);
 }
 
 for (const step of demo.CHECK_STEPS) {

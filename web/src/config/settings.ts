@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { PublishMode } from "../../../shared/protocol";
+import { CODE_APPROVALS, type CodeApproval, type PublishMode } from "../../../shared/protocol";
 import type { TtsProvider } from "../constants/tts";
 import { readJson, writeJson } from "../services/storage";
 
@@ -19,6 +19,10 @@ export interface Preferences {
   /** Type each file's diff out line by line; off shows the whole change at once. */
   replayCode: boolean;
   showLayers: boolean;
+  /** How code is approved unless the user picks otherwise. */
+  codeApproval: CodeApproval;
+  /** Ask how to approve the code when approving the plan; off uses codeApproval as is. */
+  askCodeApproval: boolean;
 }
 
 export const STORAGE_KEYS: Record<keyof Preferences, string> = {
@@ -27,6 +31,8 @@ export const STORAGE_KEYS: Record<keyof Preferences, string> = {
   replaySpeed: "wf.speed",
   replayCode: "wf.replay",
   showLayers: "wf.layers",
+  codeApproval: "wf.approval",
+  askCodeApproval: "wf.askApproval",
 };
 
 const DEFAULTS: Preferences = {
@@ -35,7 +41,12 @@ const DEFAULTS: Preferences = {
   replaySpeed: 1,
   replayCode: true,
   showLayers: false,
+  codeApproval: "every",
+  askCodeApproval: true,
 };
+
+const oneOf = <T extends string>(allowed: readonly T[], value: unknown, fallback: T): T =>
+  allowed.includes(value as T) ? (value as T) : fallback;
 
 let current: Preferences = {
   narration: { ...DEFAULTS.narration, ...readJson(STORAGE_KEYS.narration, {}) },
@@ -43,6 +54,8 @@ let current: Preferences = {
   replaySpeed: Number(readJson(STORAGE_KEYS.replaySpeed, DEFAULTS.replaySpeed)) || DEFAULTS.replaySpeed,
   replayCode: readJson(STORAGE_KEYS.replayCode, DEFAULTS.replayCode) !== false,
   showLayers: Boolean(readJson(STORAGE_KEYS.showLayers, DEFAULTS.showLayers)),
+  codeApproval: oneOf(CODE_APPROVALS, readJson(STORAGE_KEYS.codeApproval, DEFAULTS.codeApproval), DEFAULTS.codeApproval),
+  askCodeApproval: readJson(STORAGE_KEYS.askCodeApproval, DEFAULTS.askCodeApproval) !== false,
 };
 const listeners = new Set<() => void>();
 
