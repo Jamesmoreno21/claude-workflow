@@ -4,6 +4,12 @@ All notable changes are listed here. The project follows [Semantic Versioning](h
 
 ## [Unreleased]
 
+### Fixed
+
+- `workflow_start` failed with "No workflow running": the pause check ran before a workflow existed.
+- The editor no longer folds code into "hidden lines" while Claude writes a file or the replay types it.
+- Syntax colors for Vue single-file components: template, `<script lang="ts">` and `<style lang="scss">`.
+
 ## [0.5.0] - 2026-11-23
 
 ### Added

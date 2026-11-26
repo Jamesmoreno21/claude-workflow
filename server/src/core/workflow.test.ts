@@ -57,6 +57,12 @@ describe("Workflow", () => {
     expect(wf.store!.state.findings[0].fix).toEqual({ before: "export const a = 1;\n", after: "export const a = 3;\n", ready: true });
   });
 
+  it("never holds a tool before a workflow exists, so workflow_start can run", async () => {
+    const fresh = new Workflow();
+    expect(fresh.paused()).toBe(false);
+    expect(await fresh.untilResumed()).toBe(true);
+  });
+
   it("rejects unknown repos with the list of known ones", async () => {
     await expect(wf.fileReady("web", "x.ts")).rejects.toThrow(/Known: api/);
   });

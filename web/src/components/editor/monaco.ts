@@ -5,6 +5,7 @@ import EditorWorker from "monaco-editor/editor/editor.worker.js?worker";
 import HtmlWorker from "monaco-editor/language/html/html.worker.js?worker";
 import JsonWorker from "monaco-editor/language/json/json.worker.js?worker";
 import TsWorker from "monaco-editor/language/typescript/ts.worker.js?worker";
+import { registerVue } from "./vue";
 
 self.MonacoEnvironment = {
   getWorker(_id: string, label: string) {
@@ -21,6 +22,8 @@ self.MonacoEnvironment = {
 for (const defaults of [monaco.typescript.typescriptDefaults, monaco.typescript.javascriptDefaults]) {
   defaults.setDiagnosticsOptions({ noSemanticValidation: true, noSyntaxValidation: true, noSuggestionDiagnostics: true });
 }
+
+registerVue(monaco);
 
 monaco.editor.defineTheme("cockpit", {
   base: "vs-dark",

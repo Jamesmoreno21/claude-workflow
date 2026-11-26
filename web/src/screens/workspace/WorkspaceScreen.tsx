@@ -406,7 +406,7 @@ export function WorkspaceScreen() {
               sideBySide={sideBySide}
               zones={zones}
               revealLine={typed?.cursorLine ?? (review ? finding?.line : undefined)}
-              foldUnchanged={zones.length === 0}
+              foldUnchanged={zones.length === 0 && typed === null && taskFile?.status !== "writing"}
               onDirtyChange={(isDirty) => setDirtyDoc(isDirty ? docKey : null)}
               onSave={save}
               onAsk={askAboutSelection}

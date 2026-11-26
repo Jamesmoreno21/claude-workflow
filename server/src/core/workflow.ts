@@ -97,11 +97,12 @@ export class Workflow {
 
   /** Holds a tool call while the user has the workflow paused; false if it's still paused. */
   untilResumed() {
-    return this.run.untilResumed();
+    // Before workflow_start there's nothing to pause.
+    return this.store?.untilResumed() ?? Promise.resolve(true);
   }
 
   paused() {
-    return this.run.state.paused;
+    return this.store?.state.paused ?? false;
   }
 
   inReview() {
