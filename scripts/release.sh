@@ -37,7 +37,7 @@ NEXT=$(node -e '
   else process.exit(1);
 ' "$CURRENT" "$BUMP") || { echo "Invalid version or bump: $BUMP" >&2; exit 1; }
 
-if git rev-parse "v$NEXT" >/dev/null 2>&1; then
+if git rev-parse -q --verify "refs/tags/v$NEXT" >/dev/null; then
   echo "Tag v$NEXT already exists." >&2
   exit 1
 fi
